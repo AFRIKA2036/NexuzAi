@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+huggingface_hub
+requests
+llama-cpp-python
+python-dotenv

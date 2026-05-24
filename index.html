@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NexusAI — Your AI Agent Hub</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap"
+    rel="stylesheet">
+</head>
+
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-brand">
+      <span class="brand-icon">⬡</span>
+      <span class="brand-name">NexusAI</span>
+    </div>
+    <div class="nav-links">
+      <a href="#agents">Agents</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#team-hub" id="teamHubLink">Team Hub</a>
+      <a href="#" id="loginBtn">Login</a>
+      <a href="#pricing" class="nav-cta">Get Started</a>
+    </div>
+    <button class="nav-hamburger" id="hamburger">☰</button>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-grid-bg"></div>
+    <div class="hero-orb orb1"></div>
+    <div class="hero-orb orb2"></div>
+    <div class="hero-content">
+      <div class="hero-badge">✦ 8 AI Agents Available</div>
+      <h1 class="hero-title">One Hub.<br><em>Infinite Intelligence.</em></h1>
+      <p class="hero-sub">Access a curated suite of powerful AI agents — from resume writing to trip planning — all
+        powered by cutting-edge language models.</p>
+      <div class="hero-actions">
+        <a href="#agents" class="btn-primary">Explore Agents</a>
+        <a href="#pricing" class="btn-ghost">View Plans ↗</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-num">8</span><span class="stat-label">AI Agents</span></div>
+        <div class="stat-div"></div>
+        <div class="stat"><span class="stat-num">∞</span><span class="stat-label">Possibilities</span></div>
+        <div class="stat-div"></div>
+        <div class="stat"><span class="stat-num">Free</span><span class="stat-label">Tier Available</span></div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="agent-orbit">
+        <div class="orbit-ring r1"></div>
+        <div class="orbit-ring r2"></div>
+        <div class="orbit-ring r3"></div>
+        <div class="orbit-center">⬡</div>
+        <div class="orbit-dot d1" style="--angle:0deg">📄</div>
+        <div class="orbit-dot d2" style="--angle:45deg">✉️</div>
+        <div class="orbit-dot d3" style="--angle:90deg">📚</div>
+        <div class="orbit-dot d4" style="--angle:135deg">📋</div>
+        <div class="orbit-dot d5" style="--angle:180deg">✈️</div>
+        <div class="orbit-dot d6" style="--angle:225deg">🎉</div>
+        <div class="orbit-dot d7" style="--angle:270deg">💼</div>
+        <div class="orbit-dot d8" style="--angle:315deg">🔍</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AGENTS GRID -->
+  <section class="agents-section" id="agents">
+    <div class="section-header">
+      <span class="section-tag">⬡ AI AGENTS</span>
+      <h2>Choose Your Agent</h2>
+      <p>Each agent is specialized, smart, and ready to work for you.</p>
+    </div>
+    <div class="agents-grid" id="agentsGrid">
+
+      <div class="agent-card" data-agent="resume" data-tier="free">
+        <div class="card-accent"></div>
+        <div class="card-icon">📄</div>
+        <div class="card-badge free">FREE</div>
+        <h3>Resume Writer</h3>
+        <p>Upload your CV & job description. Get a polished, ATS-friendly resume in PDF or Word.</p>
+        <div class="card-tags"><span>PDF</span><span>DOCX</span><span>ATS</span></div>
+        <button class="card-btn" onclick="openAgent('resume')">Launch Agent →</button>
+      </div>
+
+      <div class="agent-card" data-agent="email" data-tier="free">
+        <div class="card-accent"></div>
+        <div class="card-icon">✉️</div>
+        <div class="card-badge free">FREE</div>
+        <h3>Email Drafter</h3>
+        <p>Compose professional emails in seconds. Formal, casual, follow-up, cold outreach — you name it.</p>
+        <div class="card-tags"><span>Professional</span><span>Casual</span><span>Cold Email</span></div>
+        <button class="card-btn" onclick="openAgent('email')">Launch Agent →</button>
+      </div>
+
+      <div class="agent-card" data-agent="notes" data-tier="free">
+        <div class="card-accent"></div>
+        <div class="card-icon">📚</div>
+        <div class="card-badge free">FREE</div>
+        <h3>Study Note Converter</h3>
+        <p>Transform raw text, lectures, or documents into structured, easy-to-revise study notes.</p>
+        <div class="card-tags"><span>Summaries</span><span>Flashcards</span><span>Outlines</span></div>
+        <button class="card-btn" onclick="openAgent('notes')">Launch Agent →</button>
+      </div>
+
+      <div class="agent-card" data-agent="contract" data-tier="pro">
+        <div class="card-accent"></div>
+        <div class="card-icon">📋</div>
+        <div class="card-badge pro">PRO</div>
+        <h3>Contract Explainer</h3>
+        <p>Paste any contract or legal doc. Get plain-English summaries, red flags, and key clause breakdowns.</p>
+        <div class="card-tags"><span>Legal</span><span>NDA</span><span>Lease</span></div>
+        <button class="card-btn pro-locked" onclick="checkPro('contract')">Launch Agent →</button>
+      </div>
+
+      <div class="agent-card" data-agent="trip" data-tier="pro">
+        <div class="card-accent"></div>
+        <div class="card-icon">✈️</div>
+        <div class="card-badge pro">PRO</div>
+        <h3>Trip Planner</h3>
+        <p>Enter your destination, budget, and dates. Get a full itinerary with hotels, activities, and tips.</p>
+        <div class="card-tags"><span>Itinerary</span><span>Budget</span><span>Hotels</span></div>
+        <button class="card-btn pro-locked" onclick="checkPro('trip')">Launch Agent →</button>
+      </div>
+
+      <div class="agent-card" data-agent="event" data-tier="pro">
+        <div class="card-accent"></div>
+        <div class="card-icon">🎉</div>
+        <div class="card-badge pro">PRO</div>
+        <h3>Event Planner</h3>
+        <p>Plan weddings, corporate events, birthdays. Get vendor checklists, timelines, and budget breakdowns.</p>
+        <div class="card-tags"><span>Timeline</span><span>Checklist</span><span>Budget</span></div>
+        <button class="card-btn pro-locked" onclick="checkPro('event')">Launch Agent →</button>
+      </div>
+
+      <div class="agent-card" data-agent="cover" data-tier="free">
+        <div class="card-accent"></div>
+        <div class="card-icon">💼</div>
+        <div class="card-badge free">FREE</div>
+        <h3>Cover Letter Writer</h3>
+        <p>Generate compelling cover letters tailored to specific job roles and companies.</p>
+        <div class="card-tags"><span>Tailored</span><span>Formal</span><span>PDF</span></div>
+        <button class="card-btn" onclick="openAgent('cover')">Launch Agent →</button>
+      </div>
+
+      <div class="agent-card" data-agent="linkedin" data-tier="pro">
+        <div class="card-accent"></div>
+        <div class="card-icon">🔍</div>
+        <div class="card-badge pro">PRO</div>
+        <h3>LinkedIn Optimizer</h3>
+        <p>Rewrite your LinkedIn headline, summary, and experience sections for maximum recruiter visibility.</p>
+        <div class="card-tags"><span>Profile</span><span>Keywords</span><span>SEO</span></div>
+        <button class="card-btn pro-locked" onclick="checkPro('linkedin')">Launch Agent →</button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section class="pricing-section" id="pricing">
+    <div class="section-header">
+      <span class="section-tag">⬡ PRICING</span>
+      <h2>Simple, Fair Plans</h2>
+      <p>Start free. Upgrade when you need more power.</p>
+    </div>
+    <div class="pricing-grid">
+
+      <div class="price-card">
+        <div class="price-label">Starter</div>
+        <div class="price-amount"><span class="currency">$</span>0<span class="period">/mo</span></div>
+        <p class="price-desc">Perfect for individuals getting started.</p>
+        <ul class="price-features">
+          <li>✓ Resume Writer</li>
+          <li>✓ Email Drafter</li>
+          <li>✓ Study Note Converter</li>
+          <li>✓ Cover Letter Writer</li>
+          <li>✓ 2 requests/account</li>
+          <li>✗ Contract Explainer</li>
+          <li>✗ Trip & Event Planner</li>
+          <li>✗ LinkedIn Optimizer</li>
+        </ul>
+        <button class="price-btn free-btn" onclick="selectPlan('free')">Get Started Free</button>
+      </div>
+
+      <div class="price-card featured">
+        <div class="price-popular">MOST POPULAR</div>
+        <div class="price-label">Pro</div>
+        <div class="price-amount"><span class="currency">$</span>9<span class="period">/mo</span></div>
+        <p class="price-desc">Unlock all agents and unlimited usage.</p>
+        <ul class="price-features">
+          <li>✓ All Free Agents</li>
+          <li>✓ Contract Explainer</li>
+          <li>✓ Trip Planner</li>
+          <li>✓ Event Planner</li>
+          <li>✓ LinkedIn Optimizer</li>
+          <li>✓ 10 requests/account</li>
+          <li>✓ Priority responses</li>
+          <li>✓ Export to PDF & DOCX</li>
+        </ul>
+        <button class="price-btn pro-btn" onclick="selectPlan('pro')">Upgrade to Pro</button>
+      </div>
+
+      <div class="price-card">
+        <div class="price-label">Team</div>
+        <div class="price-amount"><span class="currency">$</span>29<span class="period">/mo</span></div>
+        <p class="price-desc">For teams of up to 10 members.</p>
+        <ul class="price-features">
+          <li>✓ Everything in Pro</li>
+          <li>✓ Up to 10 seats</li>
+          <li>✓ Shared workspace</li>
+          <li>✓ Admin dashboard</li>
+          <li>✓ Usage analytics</li>
+          <li>✓ Priority support</li>
+          <li>✓ Custom branding</li>
+          <li>✓ API access</li>
+        </ul>
+        <button class="price-btn team-btn" onclick="selectPlan('team')">Start Team Plan</button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- AGENT MODAL -->
+  <div class="modal-overlay" id="agentModal">
+    <div class="modal-box">
+      <div class="modal-header-wrap">
+        <button class="modal-close" onclick="closeModal()">✕</button>
+        <div class="modal-header">
+          <span class="modal-icon" id="modalIcon">📄</span>
+          <div>
+            <h3 id="modalTitle">Resume Writer</h3>
+            <p id="modalDesc">Generate a professional resume</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-scroll-body">
+        <div class="modal-body" id="modalBody">
+          <!-- Dynamic content injected by JS -->
+        </div>
+        <div class="modal-output" id="modalOutput" style="display:none">
+          <div class="output-header">
+            <span>✦ AI Output</span>
+            <div class="output-actions">
+              <button onclick="copyOutput()" class="out-btn">Copy</button>
+              <button onclick="shareToTeamWorkspace()" class="out-btn" id="shareWorkspaceBtn">Share to Team</button>
+              <div class="export-dropdown">
+                <button class="out-btn export-toggle">Export ▾</button>
+                <div class="export-menu">
+                  <button onclick="downloadOutput('txt')">Plain Text (.txt)</button>
+                  <button onclick="downloadOutput('html')">Web Page (.html)</button>
+                  <button onclick="downloadOutput('pdf')">PDF Document (.pdf) ✨</button>
+                  <button onclick="downloadOutput('docx')">Word Document (.docx) ✨</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="output-content" id="outputContent"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAYMENT MODAL -->
+  <div class="modal-overlay" id="paymentModal">
+    <div class="modal-box payment-box">
+      <div class="modal-header-wrap">
+        <button class="modal-close" onclick="closePaymentModal()">✕</button>
+        <div class="modal-header">
+          <span class="modal-icon">💳</span>
+          <div>
+            <h3 id="paymentTitle">Upgrade to Pro</h3>
+            <p id="paymentDesc">Unlock all AI agents</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-scroll-body">
+        <div class="payment-body">
+          <div class="payment-summary" id="paymentSummary"></div>
+          <form class="payment-form" onsubmit="processPayment(event)">
+            <div class="form-row">
+              <label>Full Name</label>
+              <input type="text" id="payName" placeholder="John Doe" required />
+            </div>
+            <div class="form-row">
+              <label>Email Address</label>
+              <input type="email" id="payEmail" placeholder="you@example.com" required />
+            </div>
+            <div class="form-row">
+              <label>Card Number</label>
+              <input type="text" id="payCard" placeholder="4242 4242 4242 4242" maxlength="19" required />
+            </div>
+            <div class="form-row-2">
+              <div class="form-row">
+                <label>Expiry</label>
+                <input type="text" id="payExpiry" placeholder="MM/YY" maxlength="5" required />
+              </div>
+              <div class="form-row">
+                <label>CVV</label>
+                <input type="text" id="payCvv" placeholder="123" maxlength="3" required />
+              </div>
+            </div>
+            <div class="payment-plans" id="paymentPlans"></div>
+            <button type="submit" class="submit-pay-btn" id="paySubmitBtn">
+              <span id="payBtnText">Complete Payment</span>
+            </button>
+            <p class="pay-note">🔒 Secure, encrypted payment. Cancel anytime.</p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGIN MODAL -->
+  <div class="modal-overlay" id="loginModal">
+    <div class="modal-box login-box">
+      <div class="modal-header-wrap">
+        <button class="modal-close" onclick="closeLoginModal()">✕</button>
+        <div class="modal-header">
+          <span class="modal-icon">⬡</span>
+          <div>
+            <h3 id="authTitle">Welcome Back</h3>
+            <p id="authDesc">Sign in to NexusAI</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-scroll-body">
+        <form class="payment-form" onsubmit="handleLogin(event)">
+          <div class="form-row">
+            <label>Email</label>
+            <input type="email" id="loginEmail" placeholder="you@example.com" required />
+          </div>
+          <div class="form-row">
+            <label>Password</label>
+            <input type="password" id="loginPass" placeholder="••••••••" required />
+          </div>
+          <button type="submit" class="submit-pay-btn" id="authSubmitBtn">Sign In</button>
+          <div class="auth-divider"><span>or continue with</span></div>
+          <div class="oauth-grid">
+            <button type="button" class="oauth-btn" onclick="handleOAuth('google')">Google</button>
+            <button type="button" class="oauth-btn" onclick="handleOAuth('github')">GitHub</button>
+            <button type="button" class="oauth-btn" onclick="handleOAuth('facebook')">Facebook</button>
+          </div>
+          <p class="pay-note" style="text-align:center">
+            <span id="authSwitchText">Don't have an account?</span>
+            <a href="#" onclick="event.preventDefault(); openLoginModal('signup')" style="color:var(--accent)">Sign up
+              free</a>
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <!-- TEAM HUB SECTION -->
+  <section class="team-hub-section" id="teamHub" style="display: none;">
+    <div class="team-hub-container">
+      
+      <!-- SIDEBAR -->
+      <aside class="team-hub-sidebar">
+        <div class="team-sidebar-header">
+          <span class="brand-icon" id="teamBrandIcon">⬡</span>
+          <span id="teamBrandLabel">NexusAI Team</span>
+        </div>
+        <button class="team-tab-btn active" id="btn_tab_seats" onclick="switchTeamTab('seats')">👥 Member Seats</button>
+        <button class="team-tab-btn" id="btn_tab_workspace" onclick="switchTeamTab('workspace')">📁 Shared Workspace</button>
+        <button class="team-tab-btn" id="btn_tab_analytics" onclick="switchTeamTab('analytics')">📊 Usage Analytics</button>
+        <button class="team-tab-btn" id="btn_tab_branding" onclick="switchTeamTab('branding')">🎨 Custom Branding</button>
+        <button class="team-tab-btn" id="btn_tab_api" onclick="switchTeamTab('api')">🔑 API Access</button>
+        <button class="team-tab-btn" id="btn_tab_support" onclick="switchTeamTab('support')">💬 Priority Support</button>
+        <button class="team-tab-btn" id="btn_tab_admin" onclick="switchTeamTab('admin')">⚙️ Admin Settings</button>
+      </aside>
+
+      <!-- MAIN CONTENT PANEL -->
+      <main class="team-hub-main">
+
+        <!-- TAB: SEATS -->
+        <div class="team-panel active" id="panel_seats">
+          <div class="panel-header">
+            <h2>Team Members & Seats</h2>
+            <p>Manage who has access to your team workspace. Your plan supports up to 10 seats.</p>
+          </div>
+          <div class="seat-warning" id="seatWarning">
+            <span>⚠</span> You have reached the maximum limit of 10 seats. Remove a member to add another.
+          </div>
+          <form class="form-inline" onsubmit="addTeamMember(event)">
+            <div class="form-group">
+              <label for="newMemberEmail">Email Address</label>
+              <input type="email" id="newMemberEmail" placeholder="colleague@company.com" required />
+            </div>
+            <div class="form-group">
+              <label for="newMemberRole">Workspace Role</label>
+              <select id="newMemberRole">
+                <option value="member">Member (Read & Write)</option>
+                <option value="admin">Admin (Full Access)</option>
+                <option value="viewer">Viewer (Read Only)</option>
+              </select>
+            </div>
+            <button type="submit">+ Add Seat</button>
+          </form>
+          <div class="team-table-wrapper">
+            <table class="team-table">
+              <thead>
+                <tr>
+                  <th>Member</th>
+                  <th>Role</th>
+                  <th>Joined Date</th>
+                  <th style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="membersTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB: WORKSPACE -->
+        <div class="team-panel" id="panel_workspace">
+          <div class="panel-header">
+            <h2>Shared Workspace</h2>
+            <p>Access generated outputs and files shared by your team members.</p>
+          </div>
+          <div style="display:flex; justify-content: space-between; margin-bottom: 1.5rem; align-items: center;">
+            <div class="analytics-card-label" id="workspaceDocCount">0 Documents Shared</div>
+          </div>
+          <div class="team-table-wrapper">
+            <table class="team-table">
+              <thead>
+                <tr>
+                  <th>Document</th>
+                  <th>Shared By</th>
+                  <th>Size</th>
+                  <th>Date Shared</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="workspaceTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB: ANALYTICS -->
+        <div class="team-panel" id="panel_analytics">
+          <div class="panel-header">
+            <h2>Usage Analytics</h2>
+            <p>Real-time analytics and audit logs for your team's API requests.</p>
+          </div>
+          <div class="analytics-grid">
+            <div class="analytics-card">
+              <div class="analytics-card-label">Total Requests (This Month)</div>
+              <div class="analytics-card-value" id="totalTeamRequests">0</div>
+            </div>
+            <div class="analytics-card">
+              <div class="analytics-card-label">Active Seats</div>
+              <div class="analytics-card-value" id="activeSeatsCount">0 / 10</div>
+            </div>
+            <div class="analytics-card">
+              <div class="analytics-card-label">Avg. Response Time</div>
+              <div class="analytics-card-value">1.42s</div>
+            </div>
+          </div>
+          <h3 style="margin-bottom: 1rem; font-family: var(--font-head); font-weight:700;">Requests by Agent</h3>
+          <div class="progress-list" id="analyticsProgressList" style="margin-bottom: 2rem;">
+            <!-- Dynamically populated -->
+          </div>
+          <h3 style="margin-bottom: 1rem; font-family: var(--font-head); font-weight:700;">Recent Team Activity</h3>
+          <div class="team-table-wrapper">
+            <table class="team-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Agent</th>
+                  <th>Action</th>
+                  <th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody id="activityTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB: BRANDING -->
+        <div class="team-panel" id="panel_branding">
+          <div class="panel-header">
+            <h2>Custom Branding</h2>
+            <p>Customize the interface of the NexusAI hub for your team members.</p>
+          </div>
+          <form class="payment-form" onsubmit="saveCustomBranding(event)" style="background: var(--bg3); border: 1px solid var(--border); padding: 2rem; border-radius: var(--radius-sm);">
+            <div class="form-row">
+              <label>Custom Brand Name</label>
+              <input type="text" id="brandNameInput" placeholder="NexusAI" value="NexusAI" required />
+            </div>
+            <div class="form-row">
+              <label>Brand Icon Glyphs</label>
+              <select id="brandIconSelect">
+                <option value="⬡">Hexagon (⬡)</option>
+                <option value="✦">Sparkle (✦)</option>
+                <option value="◈">Diamond (◈)</option>
+                <option value="⚡">Lightning (⚡)</option>
+                <option value="🌀">Vortex (🌀)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Primary Theme Accent Color</label>
+              <div style="display:flex; align-items:center; gap:1rem;">
+                <input type="color" id="brandColorInput" value="#4af0c8" style="width: 60px; height: 40px; padding: 2px; border:none; cursor:pointer;" />
+                <span id="brandColorText" style="font-family: var(--font-mono); font-size:0.9rem; color:var(--text2);">#4af0c8</span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+              <button type="submit" class="submit-pay-btn" style="flex:1; margin-top:0;">Save Branding Changes</button>
+              <button type="button" class="btn-ghost" onclick="resetCustomBranding()" style="padding: 0.65rem 1.5rem;">Reset</button>
+            </div>
+          </form>
+          <div class="branding-preview-card">
+            <div class="branding-preview-header">Live Workspace Preview</div>
+            <div class="branding-preview-ui">
+              <div class="nav-brand" style="padding:0;">
+                <span class="brand-icon" id="previewBrandIcon" style="animation: none;">⬡</span>
+                <span class="brand-name" id="previewBrandName">NexusAI</span>
+              </div>
+              <div class="card-badge free" id="previewBadge" style="position:static;">FREE TIER</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: API -->
+        <div class="team-panel" id="panel_api">
+          <div class="panel-header">
+            <h2>Developer API Access</h2>
+            <p>Generate API keys to integrate NexusAI's agents directly into your products.</p>
+          </div>
+          <div class="api-key-box">
+            <h3 style="margin-bottom:0.5rem; font-family:var(--font-head); font-weight:700;">Developer API Keys</h3>
+            <p style="color:var(--text2); font-size:0.875rem; margin-bottom:1.5rem;">Use these keys to authenticate your requests. Keep them private!</p>
+            <button class="btn-primary" onclick="generateApiKey()" style="margin: 0 auto; display: inline-block;">+ Generate New API Key</button>
+          </div>
+          <div class="team-table-wrapper" style="margin-bottom: 2rem;">
+            <table class="team-table">
+              <thead>
+                <tr>
+                  <th>Key Name</th>
+                  <th>API Key Token</th>
+                  <th>Date Created</th>
+                  <th style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="apiKeysTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+          <h3 style="margin-bottom: 1rem; font-family: var(--font-head); font-weight:700;">API Request Code Example</h3>
+          <div class="code-block-wrapper">
+            <div class="code-block-header">
+              <span>POST /v1/chat/completions</span>
+              <button class="out-btn" onclick="copyApiCode()">Copy Code</button>
+            </div>
+            <pre class="code-block" id="apiCodeBlock">curl http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer nx_live_YOUR_KEY" \
+  -d '{
+    "model": "deepseek/deepseek-v4-flash:free",
+    "messages": [
+      {"role": "system", "content": "You are a professional assistant."},
+      {"role": "user", "content": "Write a professional email follow-up."}
+    ],
+    "stream": true
+  }'</pre>
+          </div>
+        </div>
+
+        <!-- TAB: SUPPORT -->
+        <div class="team-panel" id="panel_support">
+          <div class="panel-header">
+            <h2>Priority Support</h2>
+            <p>Get fast, premium support from our dedicated engineer team. Response within 2 hours.</p>
+          </div>
+          <div class="support-grid">
+            <div class="support-form-wrapper">
+              <h3 style="margin-bottom: 1.25rem; font-family: var(--font-head); font-weight:700;">Submit Support Ticket</h3>
+              <form class="payment-form" onsubmit="submitSupportTicket(event)">
+                <div class="form-row">
+                  <label>Ticket Subject</label>
+                  <input type="text" id="ticketSubject" placeholder="e.g., API Rate limits during batch processing" required />
+                </div>
+                <div class="form-row">
+                  <label>Description of Issue</label>
+                  <textarea id="ticketDesc" placeholder="Please describe what is happening..." rows="5" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); padding:0.75rem 1rem; outline:none; font-family:var(--font-body); resize:vertical;" required></textarea>
+                </div>
+                <div class="form-row">
+                  <label>Urgency Level</label>
+                  <select id="ticketUrgency" style="width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); padding:0.75rem 1rem; outline:none;">
+                    <option value="low">Low (General Inquiries)</option>
+                    <option value="medium" selected>Medium (Standard Issues)</option>
+                    <option value="high">High (Production Blocked)</option>
+                    <option value="critical">Critical (Data Loss/Security Alert)</option>
+                  </select>
+                </div>
+                <button type="submit" class="submit-pay-btn" style="margin-top: 1rem;">Submit Priority Ticket</button>
+              </form>
+            </div>
+            <div>
+              <h3 style="margin-bottom: 1.25rem; font-family: var(--font-head); font-weight:700;">Support History</h3>
+              <div class="support-history-wrapper" id="ticketsHistoryList">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: ADMIN -->
+        <div class="team-panel" id="panel_admin">
+          <div class="panel-header">
+            <h2>Admin Settings</h2>
+            <p>Control workspace settings, billing options, and administrative tasks.</p>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:1.5rem;">
+            <div style="background:var(--bg3); border:1px solid var(--border); padding:1.5rem; border-radius:var(--radius-sm);">
+              <h3 style="margin-bottom:0.75rem; font-family:var(--font-head); font-weight:700;">Workspace Configuration</h3>
+              <div class="form-row">
+                <label>Billing Cycle Details</label>
+                <p style="color:var(--text2); font-size:0.9rem; margin-bottom:1rem;">Your next automatic billing date is **June 24, 2026** for a total of **$29.00**.</p>
+                <div class="badge admin">Active Subscription</div>
+              </div>
+            </div>
+            <div style="background:var(--bg3); border:1px solid var(--border); padding:1.5rem; border-radius:var(--radius-sm);">
+              <h3 style="margin-bottom:1rem; font-family:var(--font-head); font-weight:700;">Billing & Invoices</h3>
+              <div class="team-table-wrapper">
+                <table class="team-table">
+                  <thead>
+                    <tr>
+                      <th>Invoice ID</th>
+                      <th>Billing Period</th>
+                      <th>Amount</th>
+                      <th style="text-align: right;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>INV-2026-004</td>
+                      <td>May 24, 2026 - Jun 24, 2026</td>
+                      <td>$29.00</td>
+                      <td style="text-align: right;"><button class="btn-secondary" onclick="showToast('✓ Invoice downloaded (PDF)')">Download</button></td>
+                    </tr>
+                    <tr>
+                      <td>INV-2026-003</td>
+                      <td>Apr 24, 2026 - May 24, 2026</td>
+                      <td>$29.00</td>
+                      <td style="text-align: right;"><button class="btn-secondary" onclick="showToast('✓ Invoice downloaded (PDF)')">Download</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-brand">
+      <span class="brand-icon">⬡</span> NexusAI
+    </div>
+    <p>© 2026 NexusAI · Powered by OpenRouter · All rights reserved</p>
+    <div class="footer-links">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Contact</a>
+    </div>
+  </footer>
+
+  <script src="js/agents.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/supabase-service.js"></script>
+  <script src="js/app.js"></script>
+</body>
+
+</html>
