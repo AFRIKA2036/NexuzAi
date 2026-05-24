@@ -40,9 +40,40 @@ body {
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
 
+/* --- GLOBAL VERIFICATION NOTICE --- */
+.global-verify-notice {
+  background: var(--accent);
+  color: var(--bg);
+  text-align: center;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.notice-link {
+  color: var(--bg);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 800;
+}
+
+.notice-link:hover {
+  opacity: 0.8;
+}
+
 /* ══════════════ NAV ══════════════ */
 .nav {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  position: fixed; top: 40px; left: 0; right: 0; z-index: 100;
   display: flex; align-items: center; justify-content: space-between;
   padding: 1rem 2rem;
   background: rgba(8, 12, 20, 0.85);
@@ -73,6 +104,18 @@ body {
 }
 
 .nav-links a:hover { color: var(--accent); }
+
+.nav-badge {
+  font-size: 0.6rem;
+  background: var(--accent);
+  color: var(--bg);
+  padding: 1px 4px;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 4px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
 
 .nav-cta {
   padding: 0.5rem 1.25rem;
@@ -462,10 +505,11 @@ body {
 .pro-btn:hover { transform: translateY(-2px); box-shadow: 0 0 50px rgba(74, 240, 200, 0.5); }
 
 .team-btn {
-  background: rgba(99, 140, 255, 0.12);
-  color: var(--accent2); border: 1px solid rgba(99, 140, 255, 0.25);
+  background: var(--accent);
+  color: var(--bg);
+  box-shadow: 0 0 30px rgba(74, 240, 200, 0.2);
 }
-.team-btn:hover { background: rgba(99, 140, 255, 0.2); }
+.team-btn:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(74, 240, 200, 0.4); }
 
 /* ══════════════ MODAL ══════════════ */
 .modal-overlay {
@@ -936,6 +980,70 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
 }
 
 .export-menu button:hover {
+}
+
+/* --- VERIFICATION BANNER --- */
+.verification-banner {
+  max-width: 1200px;
+  margin: 0 auto 1.5rem;
+  background: linear-gradient(90deg, rgba(74, 240, 200, 0.1), rgba(99, 140, 255, 0.1));
+  border: 1px solid rgba(74, 240, 200, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.verification-banner::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 4px; height: 100%;
+  background: var(--accent);
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.banner-badge {
+  background: var(--accent);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 0.7rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.banner-content p {
+  color: var(--text2);
+  font-size: 0.9rem;
+  margin: 0;
+  flex: 1;
+}
+
+.banner-content strong {
+  color: var(--text);
+}
+
+.banner-close {
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  transition: color 0.2s;
+}
+
+.banner-close:hover {
+  color: var(--text);
 }
 
 /* --- TEAM HUB DASHBOARD ----------------------- */

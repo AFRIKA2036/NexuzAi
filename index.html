@@ -12,6 +12,11 @@
 </head>
 
 <body>
+  <!-- GLOBAL VERIFICATION NOTICE -->
+  <div class="global-verify-notice" id="globalVerifyNotice">
+    <span>✦ VERIFICATION MODE ACTIVE: Explore Team & Pro features without subscription.</span>
+    <a href="#team-hub" class="notice-link">Open Team Hub →</a>
+  </div>
 
   <!-- NAV -->
   <nav class="nav">
@@ -24,7 +29,7 @@
       <a href="#pricing">Pricing</a>
       <a href="#team-hub" id="teamHubLink">Team Hub</a>
       <a href="#" id="loginBtn">Login</a>
-      <a href="#pricing" class="nav-cta">Get Started</a>
+      <a href="#pricing" class="nav-cta" id="getStartedBtn">Get Started</a>
     </div>
     <button class="nav-hamburger" id="hamburger">☰</button>
   </nav>
@@ -216,10 +221,8 @@
           <li>✓ Admin dashboard</li>
           <li>✓ Usage analytics</li>
           <li>✓ Priority support</li>
-          <li>✓ Custom branding</li>
-          <li>✓ API access</li>
         </ul>
-        <button class="price-btn team-btn" onclick="selectPlan('team')">Start Team Plan</button>
+        <button class="price-btn team-btn" onclick="selectPlan('team')">Verify Team Hub →</button>
       </div>
 
     </div>
@@ -360,6 +363,13 @@
 
   <!-- TEAM HUB SECTION -->
   <section class="team-hub-section" id="teamHub" style="display: none;">
+    <div class="verification-banner" id="verificationBanner">
+      <div class="banner-content">
+        <span class="banner-badge">VERIFICATION MODE</span>
+        <p>You are viewing the Team Hub in <strong>Preview Mode</strong>. All features are visible for verification. These will be locked behind the Team Tier subscription once in production.</p>
+        <button class="banner-close" onclick="document.getElementById('verificationBanner').style.display='none'">✕</button>
+      </div>
+    </div>
     <div class="team-hub-container">
       
       <!-- SIDEBAR -->
@@ -371,8 +381,6 @@
         <button class="team-tab-btn active" id="btn_tab_seats" onclick="switchTeamTab('seats')">👥 Member Seats</button>
         <button class="team-tab-btn" id="btn_tab_workspace" onclick="switchTeamTab('workspace')">📁 Shared Workspace</button>
         <button class="team-tab-btn" id="btn_tab_analytics" onclick="switchTeamTab('analytics')">📊 Usage Analytics</button>
-        <button class="team-tab-btn" id="btn_tab_branding" onclick="switchTeamTab('branding')">🎨 Custom Branding</button>
-        <button class="team-tab-btn" id="btn_tab_api" onclick="switchTeamTab('api')">🔑 API Access</button>
         <button class="team-tab-btn" id="btn_tab_support" onclick="switchTeamTab('support')">💬 Priority Support</button>
         <button class="team-tab-btn" id="btn_tab_admin" onclick="switchTeamTab('admin')">⚙️ Admin Settings</button>
       </aside>
@@ -465,7 +473,7 @@
             </div>
             <div class="analytics-card">
               <div class="analytics-card-label">Avg. Response Time</div>
-              <div class="analytics-card-value">1.42s</div>
+              <div class="analytics-card-value" id="avgResponseTime">---</div>
             </div>
           </div>
           <h3 style="margin-bottom: 1rem; font-family: var(--font-head); font-weight:700;">Requests by Agent</h3>
@@ -487,97 +495,6 @@
                 <!-- Dynamically populated -->
               </tbody>
             </table>
-          </div>
-        </div>
-
-        <!-- TAB: BRANDING -->
-        <div class="team-panel" id="panel_branding">
-          <div class="panel-header">
-            <h2>Custom Branding</h2>
-            <p>Customize the interface of the NexusAI hub for your team members.</p>
-          </div>
-          <form class="payment-form" onsubmit="saveCustomBranding(event)" style="background: var(--bg3); border: 1px solid var(--border); padding: 2rem; border-radius: var(--radius-sm);">
-            <div class="form-row">
-              <label>Custom Brand Name</label>
-              <input type="text" id="brandNameInput" placeholder="NexusAI" value="NexusAI" required />
-            </div>
-            <div class="form-row">
-              <label>Brand Icon Glyphs</label>
-              <select id="brandIconSelect">
-                <option value="⬡">Hexagon (⬡)</option>
-                <option value="✦">Sparkle (✦)</option>
-                <option value="◈">Diamond (◈)</option>
-                <option value="⚡">Lightning (⚡)</option>
-                <option value="🌀">Vortex (🌀)</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <label>Primary Theme Accent Color</label>
-              <div style="display:flex; align-items:center; gap:1rem;">
-                <input type="color" id="brandColorInput" value="#4af0c8" style="width: 60px; height: 40px; padding: 2px; border:none; cursor:pointer;" />
-                <span id="brandColorText" style="font-family: var(--font-mono); font-size:0.9rem; color:var(--text2);">#4af0c8</span>
-              </div>
-            </div>
-            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-              <button type="submit" class="submit-pay-btn" style="flex:1; margin-top:0;">Save Branding Changes</button>
-              <button type="button" class="btn-ghost" onclick="resetCustomBranding()" style="padding: 0.65rem 1.5rem;">Reset</button>
-            </div>
-          </form>
-          <div class="branding-preview-card">
-            <div class="branding-preview-header">Live Workspace Preview</div>
-            <div class="branding-preview-ui">
-              <div class="nav-brand" style="padding:0;">
-                <span class="brand-icon" id="previewBrandIcon" style="animation: none;">⬡</span>
-                <span class="brand-name" id="previewBrandName">NexusAI</span>
-              </div>
-              <div class="card-badge free" id="previewBadge" style="position:static;">FREE TIER</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB: API -->
-        <div class="team-panel" id="panel_api">
-          <div class="panel-header">
-            <h2>Developer API Access</h2>
-            <p>Generate API keys to integrate NexusAI's agents directly into your products.</p>
-          </div>
-          <div class="api-key-box">
-            <h3 style="margin-bottom:0.5rem; font-family:var(--font-head); font-weight:700;">Developer API Keys</h3>
-            <p style="color:var(--text2); font-size:0.875rem; margin-bottom:1.5rem;">Use these keys to authenticate your requests. Keep them private!</p>
-            <button class="btn-primary" onclick="generateApiKey()" style="margin: 0 auto; display: inline-block;">+ Generate New API Key</button>
-          </div>
-          <div class="team-table-wrapper" style="margin-bottom: 2rem;">
-            <table class="team-table">
-              <thead>
-                <tr>
-                  <th>Key Name</th>
-                  <th>API Key Token</th>
-                  <th>Date Created</th>
-                  <th style="text-align: right;">Action</th>
-                </tr>
-              </thead>
-              <tbody id="apiKeysTableBody">
-                <!-- Dynamically populated -->
-              </tbody>
-            </table>
-          </div>
-          <h3 style="margin-bottom: 1rem; font-family: var(--font-head); font-weight:700;">API Request Code Example</h3>
-          <div class="code-block-wrapper">
-            <div class="code-block-header">
-              <span>POST /v1/chat/completions</span>
-              <button class="out-btn" onclick="copyApiCode()">Copy Code</button>
-            </div>
-            <pre class="code-block" id="apiCodeBlock">curl http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer nx_live_YOUR_KEY" \
-  -d '{
-    "model": "deepseek/deepseek-v4-flash:free",
-    "messages": [
-      {"role": "system", "content": "You are a professional assistant."},
-      {"role": "user", "content": "Write a professional email follow-up."}
-    ],
-    "stream": true
-  }'</pre>
           </div>
         </div>
 
@@ -631,8 +548,8 @@
               <h3 style="margin-bottom:0.75rem; font-family:var(--font-head); font-weight:700;">Workspace Configuration</h3>
               <div class="form-row">
                 <label>Billing Cycle Details</label>
-                <p style="color:var(--text2); font-size:0.9rem; margin-bottom:1rem;">Your next automatic billing date is **June 24, 2026** for a total of **$29.00**.</p>
-                <div class="badge admin">Active Subscription</div>
+                <p style="color:var(--text2); font-size:0.9rem; margin-bottom:1rem;" id="billingDetails">Subscription status and next billing date will appear here once active.</p>
+                <div class="badge admin">Team Plan Preview</div>
               </div>
             </div>
             <div style="background:var(--bg3); border:1px solid var(--border); padding:1.5rem; border-radius:var(--radius-sm);">
@@ -647,18 +564,9 @@
                       <th style="text-align: right;">Action</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody id="invoicesTableBody">
                     <tr>
-                      <td>INV-2026-004</td>
-                      <td>May 24, 2026 - Jun 24, 2026</td>
-                      <td>$29.00</td>
-                      <td style="text-align: right;"><button class="btn-secondary" onclick="showToast('✓ Invoice downloaded (PDF)')">Download</button></td>
-                    </tr>
-                    <tr>
-                      <td>INV-2026-003</td>
-                      <td>Apr 24, 2026 - May 24, 2026</td>
-                      <td>$29.00</td>
-                      <td style="text-align: right;"><button class="btn-secondary" onclick="showToast('✓ Invoice downloaded (PDF)')">Download</button></td>
+                      <td colspan="4" style="text-align:center; padding:2rem; color:var(--text3);">No invoices available yet.</td>
                     </tr>
                   </tbody>
                 </table>

@@ -9,7 +9,8 @@ const state = {
   currentAgent: null,
   currentPlanSelection: 'pro',
   authMode: 'signin',
-  output: ''
+  output: '',
+  verificationMode: true // Enables viewing Team/Pro features for verification
 };
 
 // ─── API CONFIG ───────────────────────────────
@@ -35,7 +36,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   await autoDetectMode(); // Auto-pick local vs cloud based on server availability
   checkServerHealth();
   setInterval(checkServerHealth, 30000); // Check health every 30s
-// ... (rest of the listeners)
+
+  // Smooth scroll for anchors
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+      const href = this.getAttribute('href');
+      if (href === '#' || href === '#team-hub') return; // Handled by routing
+      
+      e.preventDefault();
+      const target = document.querySelector(href);
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
 
   // Hamburger menu
   document.getElementById('hamburger').addEventListener('click', () => {
@@ -162,10 +174,28 @@ async function autoDetectMode() {
 // ─── AUTH ──────────────────────────────────────
 function updateNavForAuth() {
   const btn = document.getElementById('loginBtn');
+  const teamLink = document.getElementById('teamHubLink');
+  const getStartedBtn = document.getElementById('getStartedBtn');
+  
   if (state.user) {
     btn.textContent = `Logout (${state.user.email.split('@')[0]})`;
+    if (getStartedBtn) getStartedBtn.style.display = 'none';
   } else {
     btn.textContent = 'Login';
+    if (getStartedBtn) getStartedBtn.style.display = 'inline-block';
+  }
+
+  if (teamLink) {
+    if (state.plan === 'team' || state.verificationMode) {
+      teamLink.style.display = 'inline-block';
+      if (state.verificationMode && state.plan !== 'team') {
+        teamLink.innerHTML = 'Team Hub <span class="nav-badge">Preview</span>';
+      } else {
+        teamLink.textContent = 'Team Hub';
+      }
+    } else {
+      teamLink.style.display = 'none';
+    }
   }
 }
 
@@ -178,19 +208,31 @@ async function handleLogin(e) {
     if (window.supabaseState?.ready) {
       try {
         await supabaseLogin(email, pass, state.authMode);
-        closeLoginModal();
-        showToast(state.authMode === 'signup' ? `Account created for ${state.user.name}!` : `Welcome back, ${state.user.name}!`);
+        
+        if (state.authMode === 'signup') {
+          showToast('✓ Account created! Please sign in.');
+          openLoginModal('signin'); // Redirect to login form
+        } else {
+          closeLoginModal();
+          showToast(`Welcome back, ${state.user.name}!`);
+        }
       } catch (err) {
         showToast(`Login failed: ${err.message}`);
       }
       return;
     }
 
-    state.user = { email, name: email.split('@')[0] };
-    localStorage.setItem('nexus_user', JSON.stringify(state.user));
-    closeLoginModal();
-    updateNavForAuth();
-    showToast(`Welcome back, ${state.user.name}! ✓`);
+    // Demo/Local Mode
+    if (state.authMode === 'signup') {
+      showToast('✓ Account created! (Demo Mode) Please sign in.');
+      openLoginModal('signin');
+    } else {
+      state.user = { email, name: email.split('@')[0] };
+      localStorage.setItem('nexus_user', JSON.stringify(state.user));
+      closeLoginModal();
+      updateNavForAuth();
+      showToast(`Welcome back, ${state.user.name}! ✓`);
+    }
   }
 }
 
@@ -587,7 +629,7 @@ async function callAIAPI(systemPrompt, userPrompt, onChunk) {
     // X-Use-Local: true means use local llama.cpp inference, false means use OpenRouter
     headers['X-Use-Local'] = CONFIG.useLocal.toString();
     headers['X-User-Email'] = state.user ? state.user.email : 'null';
-    headers['X-User-Plan'] = state.plan;
+    headers['X-User-Plan'] = state.verificationMode ? 'team' : state.plan;
   } else {
     // Cloud (Supabase edge function) uses JWT Bearer auth
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
@@ -792,7 +834,7 @@ function copyOutput() {
 function downloadOutput(format) {
   // Pro Enforcement
   const proFormats = ['html', 'pdf', 'docx'];
-  if (proFormats.includes(format) && state.plan === 'free') {
+  if (proFormats.includes(format) && state.plan === 'free' && !state.verificationMode) {
     showToast(`✨ Upgrade to Pro to download as ${format.toUpperCase()}!`);
     setTimeout(() => openPaymentModal('pro'), 1000);
     return;
@@ -1236,7 +1278,7 @@ document.addEventListener('keydown', (e) => {
 
 // ─── PRO GATE ──────────────────────────────────
 function checkPro(agentId) {
-  if (state.plan === 'pro' || state.plan === 'team') {
+  if (state.plan === 'pro' || state.plan === 'team' || state.verificationMode) {
     openAgent(agentId);
     return;
   }
@@ -1255,6 +1297,13 @@ function selectPlan(planId) {
     }
     return;
   }
+  
+  if (planId === 'team' && state.verificationMode) {
+    window.location.hash = '#team-hub';
+    showToast('Entering Team Hub Verification Mode... ✦');
+    return;
+  }
+  
   openPaymentModal(planId);
 }
 
@@ -1328,10 +1377,10 @@ function processPayment(e) {
     if (!state.user) {
       state.user = { email, name: name.split(' ')[0] };
       localStorage.setItem('nexus_user', JSON.stringify(state.user));
-      updateNavForAuth();
     }
 
     closePaymentModal();
+    updateNavForAuth();
     updateProBadges();
 
     const planNames = { pro: 'Pro', team: 'Team' };
@@ -1346,12 +1395,12 @@ function processPayment(e) {
 }
 
 function updateProBadges() {
-  if (state.plan === 'pro' || state.plan === 'team') {
+  if (state.plan === 'pro' || state.plan === 'team' || state.verificationMode) {
     document.querySelectorAll('.card-btn.pro-locked').forEach(btn => {
       btn.classList.remove('pro-locked');
     });
     document.querySelectorAll('.card-badge.pro').forEach(badge => {
-      badge.textContent = 'UNLOCKED';
+      badge.textContent = state.verificationMode && state.plan === 'free' ? 'PREVIEW' : 'UNLOCKED';
       badge.style.background = 'rgba(74, 240, 200, 0.1)';
       badge.style.color = 'var(--accent)';
     });
@@ -1390,12 +1439,11 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// ─── ON LOAD: Update badge state & apply branding ──────────────
+// ─── ON LOAD: Update badge state ──────────────
 window.addEventListener('load', () => {
-  if (state.plan === 'pro' || state.plan === 'team') {
+  if (state.plan === 'pro' || state.plan === 'team' || state.verificationMode) {
     updateProBadges();
   }
-  applyCustomBranding();
 });
 
 // ══════════════════════════════════════════════
@@ -1403,30 +1451,20 @@ window.addEventListener('load', () => {
 // ══════════════════════════════════════════════
 
 // Extend state with Team plan structures
-state.teamMembers = JSON.parse(localStorage.getItem('nexus_team_members')) || [
-  { id: 1, name: 'Alice Smith', email: 'alice@company.com', role: 'admin', joined: '2026-01-15' },
-  { id: 2, name: 'Bob Johnson', email: 'bob@company.com', role: 'member', joined: '2026-02-10' },
-  { id: 3, name: 'Charlie Brown', email: 'charlie@company.com', role: 'viewer', joined: '2026-03-01' }
-];
+state.teamMembers = JSON.parse(localStorage.getItem('nexus_team_members')) || [];
+state.teamDocuments = JSON.parse(localStorage.getItem('nexus_team_docs')) || [];
+state.teamTickets = JSON.parse(localStorage.getItem('nexus_team_tickets')) || [];
+state.teamApiKeys = JSON.parse(localStorage.getItem('nexus_team_apikeys')) || [];
 
-state.teamDocuments = JSON.parse(localStorage.getItem('nexus_team_docs')) || [
-  { id: 1, name: 'Marketing Campaign Proposal.docx', creator: 'alice@company.com', size: '24 KB', date: '2026-05-10', content: 'Marketing Campaign Proposal\nGenerated by NexusAI Event Planner\n\n1. Target Audience: Young professionals aged 22-35...\n2. Budget allocation: 40% social media ads, 30% influencer marketing...\n' },
-  { id: 2, name: 'Q2 Tech Strategy Notes.pdf', creator: 'bob@company.com', size: '158 KB', date: '2026-05-15', content: 'Q2 Tech Strategy Notes\nGenerated by NexusAI Study Note Converter\n\nKey pillars:\n- Microservices architecture migration\n- AI Agent Integration via Developer API\n- Scaling storage solutions...\n' }
-];
-
-state.teamTickets = JSON.parse(localStorage.getItem('nexus_team_tickets')) || [
-  { id: 1, subject: 'Payment Issue via invoice', desc: 'Can we get an invoice payment setup for the annual subscription?', urgency: 'medium', status: 'resolved', date: '2026-04-20' }
-];
-
-state.teamApiKeys = JSON.parse(localStorage.getItem('nexus_team_apikeys')) || [
-  { id: 1, name: 'Production Backend', key: 'nx_live_8f0a2k9...a31', created: '2026-05-01' }
-];
-
-state.customBranding = JSON.parse(localStorage.getItem('nexus_custom_branding')) || {
-  brandName: 'NexusAI',
-  brandIcon: '⬡',
-  accentColor: '#4af0c8'
-};
+// Clear old demo data if it exists (one-time cleanup for verification)
+if (localStorage.getItem('nexus_team_members') && JSON.parse(localStorage.getItem('nexus_team_members')).length > 0 && !state.user) {
+  state.teamMembers = [];
+  state.teamDocuments = [];
+  state.teamTickets = [];
+  localStorage.removeItem('nexus_team_members');
+  localStorage.removeItem('nexus_team_docs');
+  localStorage.removeItem('nexus_team_tickets');
+}
 
 // --- ROUTING & NAVIGATION ---
 function showHomeView() {
@@ -1501,8 +1539,6 @@ function initTeamHub() {
   renderSeats();
   renderWorkspace();
   renderAnalytics();
-  renderBrandingInputs();
-  renderApiKeys();
   renderTickets();
 }
 
@@ -1689,215 +1725,64 @@ function removeSharedDoc(id) {
 // --- USAGE ANALYTICS ---
 function renderAnalytics() {
   const totalReqEl = document.getElementById('totalTeamRequests');
+  const avgResEl = document.getElementById('avgResponseTime');
+  
   if (totalReqEl) {
-    totalReqEl.textContent = state.teamDocuments.length * 15 + 142;
+    totalReqEl.textContent = state.teamDocuments.length * 5; 
+  }
+  
+  if (avgResEl) {
+    avgResEl.textContent = state.teamDocuments.length > 0 ? '1.24s' : '---';
   }
 
   // Requests by Agent Progress Bars
   const list = document.getElementById('analyticsProgressList');
   if (list) {
     list.innerHTML = '';
-    const stats = [
-      { name: 'Resume Writer', count: 48, percentage: 80 },
-      { name: 'Trip Planner', count: 24, percentage: 40 },
-      { name: 'Contract Explainer', count: 18, percentage: 30 },
-      { name: 'Email Drafter', count: 12, percentage: 20 }
-    ];
+    if (state.teamDocuments.length === 0) {
+      list.innerHTML = `<div style="color:var(--text3); font-size:0.85rem; padding:1rem 0;">No usage data yet.</div>`;
+    } else {
+      // Group docs by agent if needed, or just show a message
+      const stats = [
+        { name: 'Total Workspace Activity', count: state.teamDocuments.length, percentage: Math.min(100, state.teamDocuments.length * 10) }
+      ];
 
-    stats.forEach(s => {
-      const div = document.createElement('div');
-      div.className = 'progress-item';
-      div.innerHTML = `
-        <div class="progress-info">
-          <span class="progress-label">${s.name}</span>
-          <span class="progress-value">${s.count} requests</span>
-        </div>
-        <div class="progress-bar-bg">
-          <div class="progress-bar-fill" style="width: ${s.percentage}%"></div>
-        </div>
-      `;
-      list.appendChild(div);
-    });
+      stats.forEach(s => {
+        const div = document.createElement('div');
+        div.className = 'progress-item';
+        div.innerHTML = `
+          <div class="progress-info">
+            <span class="progress-label">${s.name}</span>
+            <span class="progress-value">${s.count} requests</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="width: ${s.percentage}%"></div>
+          </div>
+        `;
+        list.appendChild(div);
+      });
+    }
   }
 
   // Recent Activity Log
   const tbody = document.getElementById('activityTableBody');
   if (tbody) {
     tbody.innerHTML = '';
-    const logs = [
-      { user: 'alice@company.com', agent: 'Resume Writer', action: 'Exported PDF', time: '10 mins ago' },
-      { user: 'bob@company.com', agent: 'Trip Planner', action: 'Generated Itinerary', time: '1 hour ago' },
-      { user: 'charlie@company.com', agent: 'Contract Explainer', action: 'Viewed Analysis', time: '3 hours ago' }
-    ];
-
-    logs.forEach(l => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><strong>${l.user.split('@')[0]}</strong></td>
-        <td>${l.agent}</td>
-        <td><span style="color:var(--accent); font-weight:500;">${l.action}</span></td>
-        <td style="color:var(--text3); font-size:0.8rem;">${l.time}</td>
-      `;
-      tbody.appendChild(tr);
-    });
+    if (state.teamDocuments.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--text3);">No recent activity logged.</td></tr>`;
+    } else {
+      state.teamDocuments.slice(-5).reverse().forEach(doc => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${doc.creator.split('@')[0]}</strong></td>
+          <td>Agent Tool</td>
+          <td><span style="color:var(--accent); font-weight:500;">Shared Output</span></td>
+          <td style="color:var(--text3); font-size:0.8rem;">${doc.date}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
   }
-}
-
-// --- CUSTOM BRANDING ---
-function renderBrandingInputs() {
-  const branding = state.customBranding;
-  if (!branding) return;
-
-  const colorInput = document.getElementById('brandColorInput');
-  if (colorInput) colorInput.value = branding.accentColor;
-  
-  const colorText = document.getElementById('brandColorText');
-  if (colorText) colorText.textContent = branding.accentColor;
-
-  const nameInput = document.getElementById('brandNameInput');
-  if (nameInput) nameInput.value = branding.brandName;
-
-  const iconSelect = document.getElementById('brandIconSelect');
-  if (iconSelect) iconSelect.value = branding.brandIcon;
-
-  // Sync previews
-  const previewName = document.getElementById('previewBrandName');
-  if (previewName) previewName.textContent = branding.brandName;
-  const previewIcon = document.getElementById('previewBrandIcon');
-  if (previewIcon) previewIcon.textContent = branding.brandIcon;
-  
-  // Attach live color listener
-  if (colorInput) {
-    colorInput.addEventListener('input', (e) => {
-      const val = e.target.value;
-      if (colorText) colorText.textContent = val;
-      const previewIcon = document.getElementById('previewBrandIcon');
-      if (previewIcon) previewIcon.style.color = val;
-    });
-  }
-}
-
-function saveCustomBranding(e) {
-  e.preventDefault();
-  const brandName = document.getElementById('brandNameInput').value.trim();
-  const brandIcon = document.getElementById('brandIconSelect').value;
-  const accentColor = document.getElementById('brandColorInput').value;
-
-  state.customBranding = { brandName, brandIcon, accentColor };
-  localStorage.setItem('nexus_custom_branding', JSON.stringify(state.customBranding));
-  
-  applyCustomBranding();
-  showToast('🎉 Custom branding changes saved successfully!');
-}
-
-function resetCustomBranding() {
-  state.customBranding = {
-    brandName: 'NexusAI',
-    brandIcon: '⬡',
-    accentColor: '#4af0c8'
-  };
-  localStorage.setItem('nexus_custom_branding', JSON.stringify(state.customBranding));
-  applyCustomBranding();
-  renderBrandingInputs();
-  showToast('✓ Branding reset to defaults.');
-}
-
-function applyCustomBranding() {
-  const branding = state.customBranding;
-  if (!branding) return;
-
-  // Write colors to css variable
-  document.documentElement.style.setProperty('--accent', branding.accentColor);
-  document.documentElement.style.setProperty('--glow', `color-mix(in srgb, ${branding.accentColor} 15%, transparent)`);
-  
-  // Update brand names
-  document.querySelectorAll('.brand-name').forEach(el => {
-    el.textContent = branding.brandName;
-  });
-
-  // Update brand icons
-  document.querySelectorAll('.brand-icon').forEach(el => {
-    el.textContent = branding.brandIcon;
-  });
-
-  const label = document.getElementById('teamBrandLabel');
-  if (label) label.textContent = `${branding.brandName} Team`;
-
-  // Update sidebar branding header if elements exist
-  const sidebarIcon = document.getElementById('teamBrandIcon');
-  if (sidebarIcon) sidebarIcon.textContent = branding.brandIcon;
-}
-
-// --- DEVELOPER API ---
-function renderApiKeys() {
-  const tbody = document.getElementById('apiKeysTableBody');
-  if (!tbody) return;
-
-  tbody.innerHTML = '';
-  state.teamApiKeys.forEach(k => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><strong>${k.name}</strong></td>
-      <td><code style="font-family:var(--font-mono); color:var(--accent2);">${k.key}</code></td>
-      <td>${k.created}</td>
-      <td style="text-align: right;">
-        <button class="btn-danger" onclick="revokeApiKey(${k.id})">Revoke</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-function generateApiKey() {
-  const name = prompt('Enter a name for this API Key (e.g. staging_server):');
-  if (name === null) return;
-  const keyName = name.trim() || `key-${Date.now().toString().slice(-4)}`;
-
-  const randomHex = Array.from({length: 16}, () => Math.floor(Math.random()*16).toString(16)).join('');
-  const keyToken = `nx_live_${randomHex}`;
-
-  const newKey = {
-    id: Date.now(),
-    name: keyName,
-    key: keyToken,
-    created: new Date().toISOString().split('T')[0]
-  };
-
-  state.teamApiKeys.push(newKey);
-  localStorage.setItem('nexus_team_apikeys', JSON.stringify(state.teamApiKeys));
-  renderApiKeys();
-  showToast(`✓ Generated API Key "${keyName}".`);
-
-  // Update code block example
-  const block = document.getElementById('apiCodeBlock');
-  if (block) {
-    block.textContent = `curl http://localhost:8000/v1/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ${keyToken}" \\
-  -d '{
-    "model": "deepseek/deepseek-v4-flash:free",
-    "messages": [
-      {"role": "system", "content": "You are a professional assistant."},
-      {"role": "user", "content": "Write a professional email follow-up."}
-    ],
-    "stream": true
-  }'`;
-  }
-}
-
-function revokeApiKey(id) {
-  state.teamApiKeys = state.teamApiKeys.filter(k => k.id !== id);
-  localStorage.setItem('nexus_team_apikeys', JSON.stringify(state.teamApiKeys));
-  renderApiKeys();
-  showToast('✓ API Key revoked successfully.');
-}
-
-function copyApiCode() {
-  const block = document.getElementById('apiCodeBlock');
-  if (!block) return;
-  navigator.clipboard.writeText(block.textContent).then(() => {
-    showToast('✓ Code snippet copied to clipboard!');
-  });
 }
 
 // --- PRIORITY SUPPORT ---
