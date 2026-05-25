@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NexusAI — Your AI Agent Hub</title>
+  <title>NexuzAI — Your AI Agent Hub</title>
   <link rel="stylesheet" href="css/style.css" />
   <link
     href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap"
@@ -22,7 +22,7 @@
   <nav class="nav">
     <div class="nav-brand">
       <span class="brand-icon">⬡</span>
-      <span class="brand-name">NexusAI</span>
+      <span class="brand-name">NexuzAI</span>
     </div>
     <div class="nav-links">
       <a href="#agents">Agents</a>
@@ -284,35 +284,11 @@
       <div class="modal-scroll-body">
         <div class="payment-body">
           <div class="payment-summary" id="paymentSummary"></div>
-          <form class="payment-form" onsubmit="processPayment(event)">
-            <div class="form-row">
-              <label>Full Name</label>
-              <input type="text" id="payName" placeholder="John Doe" required />
-            </div>
-            <div class="form-row">
-              <label>Email Address</label>
-              <input type="email" id="payEmail" placeholder="you@example.com" required />
-            </div>
-            <div class="form-row">
-              <label>Card Number</label>
-              <input type="text" id="payCard" placeholder="4242 4242 4242 4242" maxlength="19" required />
-            </div>
-            <div class="form-row-2">
-              <div class="form-row">
-                <label>Expiry</label>
-                <input type="text" id="payExpiry" placeholder="MM/YY" maxlength="5" required />
-              </div>
-              <div class="form-row">
-                <label>CVV</label>
-                <input type="text" id="payCvv" placeholder="123" maxlength="3" required />
-              </div>
-            </div>
-            <div class="payment-plans" id="paymentPlans"></div>
-            <button type="submit" class="submit-pay-btn" id="paySubmitBtn">
-              <span id="payBtnText">Complete Payment</span>
-            </button>
-            <p class="pay-note">🔒 Secure, encrypted payment. Cancel anytime.</p>
-          </form>
+          <div class="payment-plans" id="paymentPlans"></div>
+          <button type="button" class="submit-pay-btn" id="paySubmitBtn" onclick="initPaystackPayment()">
+            <span id="payBtnText">Proceed to Payment</span>
+          </button>
+          <p class="pay-note">🔒 Payments secured by Paystack. Card & Mobile Money accepted.</p>
         </div>
       </div>
     </div>
@@ -327,7 +303,7 @@
           <span class="modal-icon">⬡</span>
           <div>
             <h3 id="authTitle">Welcome Back</h3>
-            <p id="authDesc">Sign in to NexusAI</p>
+            <p id="authDesc">Sign in to NexuzAI</p>
           </div>
         </div>
       </div>
@@ -376,7 +352,7 @@
       <aside class="team-hub-sidebar">
         <div class="team-sidebar-header">
           <span class="brand-icon" id="teamBrandIcon">⬡</span>
-          <span id="teamBrandLabel">NexusAI Team</span>
+          <span id="teamBrandLabel">NexuzAI Team</span>
         </div>
         <button class="team-tab-btn active" id="btn_tab_seats" onclick="switchTeamTab('seats')">👥 Member Seats</button>
         <button class="team-tab-btn" id="btn_tab_workspace" onclick="switchTeamTab('workspace')">📁 Shared Workspace</button>
@@ -582,9 +558,9 @@
   <!-- FOOTER -->
   <footer class="footer">
     <div class="footer-brand">
-      <span class="brand-icon">⬡</span> NexusAI
+      <span class="brand-icon">⬡</span> NexuzAI
     </div>
-    <p>© 2026 NexusAI · Powered by OpenRouter · All rights reserved</p>
+    <p>© 2026 NexuzAI · Powered by OpenRouter · All rights reserved</p>
     <div class="footer-links">
       <a href="#">Privacy</a>
       <a href="#">Terms</a>
@@ -592,6 +568,7 @@
     </div>
   </footer>
 
+  <script src="https://js.paystack.co/v2/inline.js"></script>
   <script src="js/agents.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>

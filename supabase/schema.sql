@@ -1,4 +1,4 @@
--- NexusAI Supabase schema
+-- NexuzAI Supabase schema
 -- Run this in Supabase SQL Editor after creating the project.
 
 do $$
@@ -19,6 +19,8 @@ create table if not exists public.profiles (
   plan public.plan_type not null default 'free',
   stripe_customer_id text,
   stripe_subscription_id text,
+  paystack_customer_code text,
+  paystack_last_reference text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

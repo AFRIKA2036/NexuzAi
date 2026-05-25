@@ -9,7 +9,7 @@ const supabaseState = {
 window.supabaseState = supabaseState;
 
 function isSupabaseConfigured() {
-  const cfg = window.NEXUS_SUPABASE_CONFIG || {};
+  const cfg = window.NEXUZ_SUPABASE_CONFIG || {};
   return Boolean(
     cfg.url &&
     cfg.anonKey &&
@@ -21,7 +21,7 @@ function isSupabaseConfigured() {
 async function initSupabase() {
   if (!window.supabase || !isSupabaseConfigured()) return false;
 
-  const cfg = window.NEXUS_SUPABASE_CONFIG;
+  const cfg = window.NEXUZ_SUPABASE_CONFIG;
   supabaseState.client = window.supabase.createClient(cfg.url, cfg.anonKey);
   supabaseState.ready = true;
   if (cfg.aiFunctionUrl && window.CONFIG) window.CONFIG.cloudProxyUrl = cfg.aiFunctionUrl;
@@ -37,8 +37,8 @@ async function initSupabase() {
     } else {
       state.user = null;
       state.plan = 'free';
-      localStorage.removeItem('nexus_user');
-      localStorage.removeItem('nexus_plan');
+      localStorage.removeItem('nexuz_user');
+      localStorage.removeItem('nexuz_plan');
       updateNavForAuth();
     }
   });
@@ -64,8 +64,8 @@ async function hydrateUserFromSupabase(user) {
     name: profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
   };
   state.plan = plan;
-  localStorage.setItem('nexus_user', JSON.stringify(state.user));
-  localStorage.setItem('nexus_plan', state.plan);
+  localStorage.setItem('nexuz_user', JSON.stringify(state.user));
+  localStorage.setItem('nexuz_plan', state.plan);
   updateNavForAuth();
   updateProBadges();
 }

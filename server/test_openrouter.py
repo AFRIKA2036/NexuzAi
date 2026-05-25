@@ -14,7 +14,7 @@ def test_model(model_id):
         "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json",
         "HTTP-Referer": "http://localhost:8080",
-        "X-Title": "NexusAI Diagnostic"
+        "X-Title": "NexuzAI Diagnostic"
     }
     
     payload = {

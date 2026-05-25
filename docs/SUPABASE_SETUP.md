@@ -49,7 +49,7 @@ It also enables row level security so users only read and write their own record
 Open `js/supabase-config.js` and fill:
 
 ```js
-window.NEXUS_SUPABASE_CONFIG = {
+window.NEXUZ_SUPABASE_CONFIG = {
   url: 'https://YOUR_PROJECT_REF.supabase.co',
   anonKey: 'YOUR_SUPABASE_ANON_PUBLIC_KEY',
   aiFunctionUrl: 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/ai-generate'

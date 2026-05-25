@@ -1,4 +1,4 @@
-# ⬡ NexusAI — AI Agent Hub
+# ⬡ NexuzAI — AI Agent Hub
 
 A futuristic, portable web application featuring 8 specialized AI agents powered by the Anthropic Claude API.
 
@@ -39,7 +39,7 @@ A futuristic, portable web application featuring 8 specialized AI agents powered
 
 ## 🚀 New: Gemma 4 Offline Mode (May 2026)
 
-NexusAI now supports **fully offline inference** using Google's **Gemma 4 31B IT** model.
+NexuzAI now supports **fully offline inference** using Google's **Gemma 4 31B IT** model.
 
 ### Setup Instructions
 
@@ -56,7 +56,7 @@ NexusAI now supports **fully offline inference** using Google's **Gemma 4 31B IT
    ```
 
 3. **Enable Offline Mode:**
-   Open NexusAI in your browser and toggle the **"Offline Mode"** switch in the navigation bar.
+   Open NexuzAI in your browser and toggle the **"Offline Mode"** switch in the navigation bar.
 
 ---
 
@@ -69,6 +69,22 @@ Use one of the server-side paths:
 - Supabase Edge Function: store `OPENROUTER_API_KEY`, `APP_URL`, and `ALLOWED_ORIGINS` with `supabase secrets set`.
 - Local FastAPI proxy: store provider and Supabase secrets in an uncommitted `server/.env` file.
 - CI/CD: store deploy-time values in GitHub Actions Secrets or the hosting platform secret manager.
+
+## 💳 Payment Integration (Paystack)
+
+NexuzAI uses **Paystack** for secure payments, supporting both **Cards** and **Mobile Money** (MTN, Vodafone, Airteltigo).
+
+To enable payments:
+1. Create a [Paystack](https://paystack.com) account.
+2. Add your **Public Key** to `js/supabase-config.js`.
+3. Set your **Secret Key** in Supabase Edge Functions:
+   ```bash
+   supabase secrets set PAYSTACK_SECRET_KEY=sk_live_...
+   ```
+4. Deploy the verification function:
+   ```bash
+   supabase functions deploy paystack-verify
+   ```
 
 > ⚠️ **Security Note**: For production use, move the API call to a backend server to keep your API key private. Never expose API keys in client-side code for public-facing apps.
 
@@ -131,4 +147,4 @@ Works on any static hosting:
 
 ---
 
-Built with ❤️ using NexusAI
+Built with ❤️ using NexuzAI

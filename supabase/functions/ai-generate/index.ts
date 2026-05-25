@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${openrouterKey}`,
         'HTTP-Referer': Deno.env.get('APP_URL') || 'http://localhost',
-        'X-Title': 'NexusAI'
+        'X-Title': 'NexuzAI'
       },
       body: JSON.stringify(providerBody),
       signal: AbortSignal.timeout(75_000)
