@@ -10,7 +10,7 @@ const state = {
   currentPlanSelection: 'pro',
   authMode: 'signin',
   output: '',
-  verificationMode: true // Enables viewing Team/Pro features for verification
+  verificationMode: false // Disabled for production
 };
 
 // ─── API CONFIG ───────────────────────────────
