@@ -227,24 +227,40 @@ async function handleLogin(e) {
   const pass = document.getElementById('loginPass').value;
 
   if (email && pass) {
+    // If Supabase is ready, use it exclusively
     if (window.supabaseState?.ready) {
       try {
         await supabaseLogin(email, pass, state.authMode);
         
         if (state.authMode === 'signup') {
           showToast('✓ Account created! Please sign in.');
-          openLoginModal('signin'); // Redirect to login form
+          openLoginModal('signin');
         } else {
           closeLoginModal();
           showToast(`Welcome back, ${state.user.name}!`);
         }
       } catch (err) {
-        showToast(`Login failed: ${err.message}`);
+        console.error("Login Error:", err);
+        // Explicit error messages for common Supabase auth failures
+        let msg = err.message || "Invalid credentials";
+        if (msg.includes("invalid_credentials") || msg.toLowerCase().includes("invalid login")) {
+          msg = "❌ Invalid email or password. Please try again.";
+        } else if (msg.includes("User already registered")) {
+          msg = "❌ This email is already registered. Try signing in.";
+        }
+        showToast(msg);
       }
       return;
     }
 
-    // Demo/Local Mode
+    // If Supabase is configured but NOT ready, don't fallback to demo
+    if (typeof isSupabaseConfigured === 'function' && isSupabaseConfigured()) {
+      showToast('⚠ Supabase connection error. Please refresh the page.');
+      console.warn("Supabase is configured but state.ready is false.");
+      return;
+    }
+
+    // Demo/Local Mode (Only if NO Supabase config is found)
     if (state.authMode === 'signup') {
       showToast('✓ Account created! (Demo Mode) Please sign in.');
       openLoginModal('signin');
@@ -253,7 +269,7 @@ async function handleLogin(e) {
       localStorage.setItem('nexuz_user', JSON.stringify(state.user));
       closeLoginModal();
       updateNavForAuth();
-      showToast(`Welcome back, ${state.user.name}! ✓`);
+      showToast(`Welcome back, ${state.user.name}! (Demo Mode) ✓`);
     }
   }
 }

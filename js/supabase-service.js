@@ -10,43 +10,57 @@ window.supabaseState = supabaseState;
 
 function isSupabaseConfigured() {
   const cfg = window.NEXUZ_SUPABASE_CONFIG || {};
-  return Boolean(
-    cfg.url &&
-    cfg.anonKey &&
-    !cfg.url.includes('YOUR_SUPABASE') &&
-    !cfg.anonKey.includes('YOUR_SUPABASE')
-  );
+  const isDefault = !cfg.url || cfg.url.includes('YOUR_SUPABASE') || cfg.url === '';
+  return !isDefault;
 }
 
 async function initSupabase() {
-  if (!window.supabase || !isSupabaseConfigured()) return false;
-
-  const cfg = window.NEXUZ_SUPABASE_CONFIG;
-  supabaseState.client = window.supabase.createClient(cfg.url, cfg.anonKey);
-  supabaseState.ready = true;
-  if (window.CONFIG) {
-    const projectUrl = String(cfg.url || '').replace(/\/+$/, '');
-    window.CONFIG.cloudProxyUrl = cfg.aiFunctionUrl || `${projectUrl}/functions/v1/ai-generate`;
+  if (!isSupabaseConfigured()) {
+    console.log("Supabase not configured. Running in Demo Mode.");
+    return false;
   }
 
-  const { data } = await supabaseState.client.auth.getSession();
-  supabaseState.session = data.session;
-  if (data.session?.user) await hydrateUserFromSupabase(data.session.user);
+  if (!window.supabase) {
+    console.error("Supabase library (window.supabase) not found. Check your index.html script tags.");
+    return false;
+  }
 
-  supabaseState.client.auth.onAuthStateChange(async (_event, session) => {
-    supabaseState.session = session;
-    if (session?.user) {
-      await hydrateUserFromSupabase(session.user);
-    } else {
-      state.user = null;
-      state.plan = 'free';
-      localStorage.removeItem('nexuz_user');
-      localStorage.removeItem('nexuz_plan');
-      updateNavForAuth();
+  try {
+    const cfg = window.NEXUZ_SUPABASE_CONFIG;
+    supabaseState.client = window.supabase.createClient(cfg.url, cfg.anonKey);
+    supabaseState.ready = true;
+    
+    if (window.CONFIG) {
+      const projectUrl = String(cfg.url || '').replace(/\/+$/, '');
+      window.CONFIG.cloudProxyUrl = cfg.aiFunctionUrl || `${projectUrl}/functions/v1/ai-generate`;
     }
-  });
 
-  return true;
+    const { data, error } = await supabaseState.client.auth.getSession();
+    if (error) throw error;
+
+    supabaseState.session = data.session;
+    if (data.session?.user) await hydrateUserFromSupabase(data.session.user);
+
+    supabaseState.client.auth.onAuthStateChange(async (_event, session) => {
+      console.log("Auth State Changed:", _event);
+      supabaseState.session = session;
+      if (session?.user) {
+        await hydrateUserFromSupabase(session.user);
+      } else {
+        state.user = null;
+        state.plan = 'free';
+        localStorage.removeItem('nexuz_user');
+        localStorage.removeItem('nexuz_plan');
+        updateNavForAuth();
+      }
+    });
+
+    console.log("Supabase initialized successfully.");
+    return true;
+  } catch (err) {
+    console.error("Supabase Initialization Error:", err);
+    return false;
+  }
 }
 
 async function hydrateUserFromSupabase(user) {
