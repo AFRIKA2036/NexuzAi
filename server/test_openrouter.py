@@ -1,9 +1,12 @@
 import httpx
 import json
 import os
+import sys
 from dotenv import load_dotenv
 
 load_dotenv()
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -41,10 +44,7 @@ def test_model(model_id):
 if __name__ == "__main__":
     # Test a few models from our pool
     models_to_test = [
-        "qwen/qwen3-coder:free",
-        "nvidia/nemotron-3-super-120b-a12b:free",
-        "openai/gpt-oss-120b:free",
-        "deepseek/deepseek-v4-flash:free"
+        "nvidia/nemotron-3-super-120b-a12b:free"
     ]
     
     for m in models_to_test:

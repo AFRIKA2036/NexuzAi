@@ -16,11 +16,11 @@ const state = {
 // ─── API CONFIG ───────────────────────────────
 const CONFIG = {
   useLocal: false, // Default: use Cloud Mode (Supabase edge function)
-  localProxyUrl: 'http://localhost:8000/v1/chat/completions',
+  localProxyUrl: 'http://localhost:8001/v1/chat/completions',
   cloudProxyUrl: '', // Set by supabase-config.js via supabase-service.js
   get proxyUrl() { return this.useLocal ? this.localProxyUrl : (this.cloudProxyUrl || this.localProxyUrl); },
-  healthUrl: 'http://localhost:8000/health',
-  model: 'deepseek/deepseek-v4-flash:free' // Use a single free model as requested
+  healthUrl: 'http://localhost:8001/health',
+  model: 'nvidia/nemotron-3-super-120b-a12b:free'
 };
 window.CONFIG = CONFIG;
 
@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   addLocalToggle();
   await autoDetectMode(); // Auto-pick local vs cloud based on server availability
   checkServerHealth();
+  handlePaymentCallback(); // Check if we returned from Paystack
   setInterval(checkServerHealth, 30000); // Check health every 30s
 
   // Smooth scroll for anchors
@@ -120,8 +121,16 @@ async function checkServerHealth() {
     const res = await fetch(CONFIG.healthUrl, { signal: AbortSignal.timeout(3000) });
     if (res.ok) {
       const data = await res.json();
-      dot.style.background = data.mode === 'local' ? '#4af0c8' : '#f0a84a';
-      dot.title = `Server Online (${data.mode} mode)`;
+      if (data.mode === 'openrouter') {
+        dot.style.background = '#4af0c8';
+        dot.title = 'Server Online (Cloud-Ready)';
+      } else if (data.mode === 'simulation') {
+        dot.style.background = '#f0a84a';
+        dot.title = 'Server Online (Simulation Mode)';
+      } else {
+        dot.style.background = '#4af0c8';
+        dot.title = `Server Online (${data.mode})`;
+      }
       return true;
     } else {
       dot.style.background = '#ff6b6b';
@@ -139,23 +148,27 @@ async function autoDetectMode() {
   // If user has a saved preference, respect it
   const saved = localStorage.getItem('nexuz_use_local');
   if (saved !== null) {
-    CONFIG.useLocal = saved === 'true';
+    const savedUseLocal = saved === 'true';
+    if (savedUseLocal && !(await isLocalServerAvailable()) && CONFIG.cloudProxyUrl) {
+      CONFIG.useLocal = false;
+      localStorage.setItem('nexuz_use_local', 'false');
+      showToast('Offline Mode is unavailable. Using Cloud Mode.');
+    } else {
+      CONFIG.useLocal = savedUseLocal;
+    }
     const toggle = document.getElementById('localToggle');
     if (toggle) toggle.checked = CONFIG.useLocal;
     return;
   }
 
   // Otherwise auto-detect: prefer local server if it's running
-  try {
-    const res = await fetch(CONFIG.healthUrl, { signal: AbortSignal.timeout(2000) });
-    if (res.ok) {
-      CONFIG.useLocal = true;
-      const toggle = document.getElementById('localToggle');
-      if (toggle) toggle.checked = true;
-      showToast('\u2726 Local server detected \u2014 using Offline Mode');
-      return;
-    }
-  } catch (_) { /* server not running */ }
+  if (await isLocalServerAvailable()) {
+    CONFIG.useLocal = true;
+    const toggle = document.getElementById('localToggle');
+    if (toggle) toggle.checked = true;
+    showToast('\u2726 Local server detected \u2014 using Offline Mode');
+    return;
+  }
 // Local server not available — use cloud if configured
   const hasCloud = Boolean(CONFIG.cloudProxyUrl);
   if (hasCloud) {
@@ -172,6 +185,15 @@ async function autoDetectMode() {
 }
 
 // ─── AUTH ──────────────────────────────────────
+async function isLocalServerAvailable() {
+  try {
+    const res = await fetch(CONFIG.healthUrl, { signal: AbortSignal.timeout(2000) });
+    return res.ok;
+  } catch (_) {
+    return false;
+  }
+}
+
 function updateNavForAuth() {
   const btn = document.getElementById('loginBtn');
   const teamLink = document.getElementById('teamHubLink');
@@ -548,24 +570,25 @@ async function runAgent() {
     // Determine error type and show the right message
     const isNetworkErr = err.message?.includes("Failed to fetch") || err.message?.includes("NetworkError") || err.message?.includes("Load failed");
     const isCorsErr = err.message?.includes("CORS") || err.message?.includes("blocked");
-    const isUsingCloud = !CONFIG.useLocal && window.NEXUZ_SUPABASE_CONFIG?.aiFunctionUrl;
+    const isUsingCloud = !CONFIG.useLocal && Boolean(CONFIG.cloudProxyUrl);
 
     if (isNetworkErr && CONFIG.useLocal) {
-      // Local proxy not running
-      showToast('✦ Local server not reachable. Enable Cloud Mode or start the server.');
+      // Local proxy not running or CORS blocked
+      showToast('✦ Local connection issue. Try Cloud Mode.');
       outputContent.innerHTML = `<div class="error-box" style="color:#f0a84a;padding:1.25rem;border:1px solid rgba(240,168,74,0.2);border-radius:8px;background:rgba(240,168,74,0.05)">
-        <strong>⚠ Local Server Offline</strong><br><br>
-        The local proxy at <code style="color:var(--accent);font-size:0.85em">${CONFIG.proxyUrl}</code> is not reachable.<br><br>
-        <strong>Quick Fix:</strong> Toggle <em>Offline Mode</em> off in the nav bar to switch to Cloud Mode, or start the server:
-        <pre style="margin-top:0.75rem;font-size:0.8em;opacity:0.8">python server/local_server.py</pre>
-        <button class="btn-ghost" style="margin-top:1rem;width:100%;border-color:rgba(240,168,74,0.3)" onclick="showDemoOutput()">See Demo Output Instead →</button>
+        <strong>✦ Local Connection Issue</strong><br><br>
+        We couldn't reach the local AI engine. This usually happens if the engine is offline or a browser security setting is blocking the connection.<br><br>
+        <strong>Quick Solution:</strong><br>
+        1. Switch <strong>Offline Mode</strong> OFF in the navigation bar to use our Cloud AI.<br>
+        2. Ensure the local server is running on port 8001.<br><br>
+        <button class="btn-ghost" style="margin-top:0.5rem;width:100%;border-color:rgba(240,168,74,0.3)" onclick="showDemoOutput()">See Sample Output →</button>
       </div>`;
     } else if (isNetworkErr && isUsingCloud) {
       // Cloud CORS or network error
-      showToast('⚠ Cloud connection failed. Check your Supabase edge function.');
+      showToast('Cloud AI is not deployed yet.');
       outputContent.innerHTML = `<div class="error-box" style="color:#ff6b6b;padding:1.25rem;border:1px solid rgba(255,107,107,0.2);border-radius:8px;background:rgba(255,107,107,0.05)">
-        <strong>⚠ Cloud API Connection Failed</strong><br><br>
-        Could not reach the AI generation service. This is usually a CORS or deployment issue with the Supabase edge function.<br><br>
+        <strong>Cloud AI Function Missing</strong><br><br>
+        The app could not reach <code>ai-generate</code> in the configured Supabase project. Deploy the Edge Function, then refresh this page.<br><br>
         <button class="btn-ghost" style="margin-top:1rem;width:100%;border-color:rgba(255,107,107,0.3)" onclick="showDemoOutput()">See Demo Output Instead →</button>
       </div>`;
     } else if (errorMsg.includes('Upgrade to Pro')) {
@@ -632,7 +655,10 @@ async function callAIAPI(systemPrompt, userPrompt, onChunk) {
     headers['X-User-Plan'] = state.verificationMode ? 'team' : state.plan;
   } else {
     // Cloud (Supabase edge function) uses JWT Bearer auth
-    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    if (!accessToken) throw new Error('Please sign in again before generating with Cloud Mode');
+    const cfg = window.NEXUZ_SUPABASE_CONFIG || {};
+    if (cfg.anonKey) headers.apikey = cfg.anonKey;
+    headers.Authorization = `Bearer ${accessToken}`;
   }
 
   const response = await fetch(CONFIG.proxyUrl, {
@@ -659,7 +685,9 @@ async function callAIAPI(systemPrompt, userPrompt, onChunk) {
   const contentType = response.headers.get('content-type') || '';
   if (contentType.includes('application/json')) {
     const data = await response.json();
+    if (data.error) throw new Error(data.error.message || data.error || 'AI provider returned an error');
     const content = data.choices?.[0]?.message?.content || data.choices?.[0]?.text || data.output || '';
+    if (!content.trim()) throw new Error('AI provider returned an empty response');
     if (onChunk) onChunk(content);
     return content;
   }
@@ -683,26 +711,27 @@ async function callAIAPI(systemPrompt, userPrompt, onChunk) {
       
       if (trimmedLine.startsWith('data: ')) {
         const dataStr = trimmedLine.slice(6);
+        let data;
         try {
-          const data = JSON.parse(dataStr);
-          
-          // Handle Error in Stream
-          if (data.error) {
-            const errMsg = data.error.message || "Unknown Provider Error";
-            fullContent += `\n\n[ERROR] ${errMsg}`;
-            if (onChunk) onChunk(fullContent);
-            return fullContent;
-          }
-
-          const content = data.choices[0]?.delta?.content || data.choices[0]?.text || '';
-          fullContent += content;
-          if (onChunk) onChunk(fullContent);
+          data = JSON.parse(dataStr);
         } catch (e) {
           console.warn("Could not parse stream chunk:", dataStr);
+          continue;
         }
+
+        if (data.error) {
+          const errMsg = data.error.message || data.error || "Unknown Provider Error";
+          throw new Error(errMsg);
+        }
+
+        const choice = data.choices?.[0] || {};
+        const content = choice.delta?.content || choice.message?.content || choice.text || '';
+        fullContent += content;
+        if (onChunk) onChunk(fullContent);
       }
     }
   }
+  if (!fullContent.trim()) throw new Error('AI provider returned an empty response');
   return fullContent;
 }
 
@@ -1309,8 +1338,8 @@ function selectPlan(planId) {
 
 function openPaymentModal(planId) {
   const plans = {
-    pro: { name: 'Pro Plan', price: '$9/month', amount: 9 },
-    team: { name: 'Team Plan', price: '$29/month', amount: 29 }
+    pro: { name: 'Pro Plan', price: 'GH₵ 150/month', amount: 150 },
+    team: { name: 'Team Plan', price: 'GH₵ 450/month', amount: 450 }
   };
 
   state.currentPlanSelection = planId;
@@ -1346,6 +1375,75 @@ function selectPaymentPlan(planId, el) {
   el.classList.add('selected');
 }
 
+function getSupabaseFunctionUrl(functionName) {
+  const cfg = window.NEXUZ_SUPABASE_CONFIG || {};
+  if (!cfg.url || !cfg.anonKey) {
+    throw new Error('Supabase is not configured');
+  }
+
+  const baseUrl = String(cfg.url).replace(/\/+$/, '');
+  return `${baseUrl}/functions/v1/${functionName}`;
+}
+
+async function invokePaymentFunction(functionName, body) {
+  if (!window.supabaseState?.ready) {
+    throw new Error('Please sign in before starting payment');
+  }
+
+  const cfg = window.NEXUZ_SUPABASE_CONFIG || {};
+  const url = getSupabaseFunctionUrl(functionName);
+  const accessToken = await getSupabaseAccessToken();
+  if (!accessToken) throw new Error('Please sign in again before starting payment');
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: cfg.anonKey,
+        Authorization: `Bearer ${accessToken}`
+      },
+      body: JSON.stringify(body)
+    });
+
+    const text = await response.text();
+    let data = {};
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch (_) {
+        data = { error: text };
+      }
+    }
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error(`Payment service is not deployed (${functionName}).`);
+      }
+      throw new Error(data.error || data.message || `Payment service failed with status ${response.status}`);
+    }
+
+    return data;
+  } catch (err) {
+    if (err instanceof TypeError) {
+      throw new Error(`Payment service is not reachable (${functionName}).`);
+    }
+    throw err;
+  }
+}
+
+function buildPaymentCallbackUrl(planId) {
+  if (!/^https?:$/.test(window.location.protocol)) {
+    throw new Error('Payment checkout must be opened from an http:// or https:// URL, not directly from a file');
+  }
+
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.searchParams.set('payment_callback', 'true');
+  url.searchParams.set('planId', planId);
+  return url.toString();
+}
+
 async function initPaystackPayment() {
   if (!state.user) {
     showToast('Please login to continue');
@@ -1354,82 +1452,89 @@ async function initPaystackPayment() {
   }
 
   const planId = state.currentPlanSelection || 'pro';
-  const plans = {
-    pro: { name: 'Pro Plan', amount: 9, currency: 'USD' },
-    team: { name: 'Team Plan', amount: 29, currency: 'USD' }
-  };
-
-  const plan = plans[planId];
-  const cfg = window.NEXUZ_SUPABASE_CONFIG;
-
-  if (!cfg?.paystackPublicKey || cfg.paystackPublicKey.includes('xxx')) {
-    showToast('⚠ Paystack Public Key is not configured correctly');
-    return;
-  }
-
   const btn = document.getElementById('paySubmitBtn');
   btn.disabled = true;
-  document.getElementById('payBtnText').textContent = '⟳ Initializing...';
+  document.getElementById('payBtnText').textContent = '⟳ Redirecting to Paystack...';
 
   try {
-    const paystack = new PaystackPop();
-    paystack.newTransaction({
-      key: cfg.paystackPublicKey,
-      email: state.user.email,
-      amount: plan.amount * 100, // Amount in subunits (cents)
-      currency: plan.currency,
-      onSuccess: (transaction) => {
-        verifyPaymentOnServer(transaction.reference, planId);
-      },
-      onCancel: () => {
-        showToast('Payment cancelled');
-        btn.disabled = false;
-        document.getElementById('payBtnText').textContent = 'Proceed to Payment';
-      },
-      onError: (err) => {
-        showToast('⚠ Paystack Error: ' + err.message);
-        btn.disabled = false;
-        document.getElementById('payBtnText').textContent = 'Proceed to Payment';
-      }
+    // Determine the callback URL (where Paystack will redirect the user after payment)
+    const callbackUrl = buildPaymentCallbackUrl(planId);
+    
+    // Call the Supabase Edge Function to initialize the transaction
+    const data = await invokePaymentFunction('paystack-initialize', {
+      planId,
+      callbackUrl
     });
+    
+    if (data?.url) {
+      // Redirect to Paystack's hosted checkout page (checkout.paystack.com)
+      window.location.href = data.url;
+    } else {
+      throw new Error(data?.error || 'Failed to initialize payment redirect');
+    }
   } catch (err) {
-    console.error('Paystack initialization failed:', err);
-    showToast('⚠ Failed to initialize payment popup');
+    console.error('Paystack Redirect Error:', err);
+    showToast(getPaymentErrorMessage(err));
     btn.disabled = false;
     document.getElementById('payBtnText').textContent = 'Proceed to Payment';
   }
 }
 
+function getPaymentErrorMessage(err) {
+  const message = err?.message || String(err);
+  if (message.includes('not deployed') || message.includes('not reachable')) {
+    return 'Payment is not deployed yet. Deploy the Paystack Edge Functions.';
+  }
+  if (message.includes('Paystack Secret Key') || message.includes('PAYSTACK_SECRET_KEY')) {
+    return 'Payment is missing the Paystack secret key.';
+  }
+  if (message.includes('file')) {
+    return 'Open the app from http://127.0.0.1:5600/index.html before paying.';
+  }
+  return `Payment failed: ${message}`;
+}
+
+async function handlePaymentCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const reference = params.get('reference') || params.get('trxref');
+  const planId = params.get('planId');
+  const isCallback = params.get('payment_callback');
+
+  if (isCallback && reference && planId) {
+    // Clear URL parameters to prevent re-verification on refresh
+    const newUrl = window.location.pathname + window.location.hash;
+    window.history.replaceState({}, document.title, newUrl);
+    
+    showToast('✦ Verifying payment...');
+    // Use the existing verification logic
+    verifyPaymentOnServer(reference, planId);
+  }
+}
+
 async function verifyPaymentOnServer(reference, planId) {
   const btn = document.getElementById('paySubmitBtn');
-  document.getElementById('payBtnText').textContent = '✦ Verifying...';
+  const btnText = document.getElementById('payBtnText');
+  if (btnText) btnText.textContent = '✦ Verifying...';
 
   try {
     if (!window.supabaseState?.ready) {
-      // Fallback for demo mode (not recommended for production)
-      console.warn('Supabase not ready, using demo verification');
-      setTimeout(() => finalizeUpgrade(planId), 1500);
-      return;
+      throw new Error('Please sign in again before verifying payment');
     }
 
-    const { data, error } = await window.supabaseState.client.functions.invoke('paystack-verify', {
-      body: { reference, planId }
-    });
-
-    if (error) throw error;
+    const data = await invokePaymentFunction('paystack-verify', { reference, planId });
 
     if (data?.success) {
       finalizeUpgrade(planId);
     } else {
       showToast('⚠ Verification failed: ' + (data?.error || 'Unknown error'));
-      btn.disabled = false;
-      document.getElementById('payBtnText').textContent = 'Proceed to Payment';
+      if (btn) btn.disabled = false;
+      if (btnText) btnText.textContent = 'Proceed to Payment';
     }
   } catch (err) {
     console.error('Verification error:', err);
-    showToast('⚠ Error verifying payment. Please check your connection.');
-    btn.disabled = false;
-    document.getElementById('payBtnText').textContent = 'Proceed to Payment';
+    showToast(getPaymentErrorMessage(err));
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.textContent = 'Proceed to Payment';
   }
 }
 
@@ -1445,7 +1550,7 @@ function finalizeUpgrade(planId) {
   showToast(`🎉 Welcome to ${planNames[planId]} plan!`);
 
   const btn = document.getElementById('paySubmitBtn');
-  btn.disabled = false;
+  if (btn) btn.disabled = false;
   document.getElementById('payBtnText').textContent = 'Proceed to Payment';
 
   triggerConfetti();
@@ -1711,6 +1816,13 @@ function renderWorkspace() {
 function shareToTeamWorkspace() {
   if (!state.output) {
     showToast('⚠ No output generated to share!');
+    return;
+  }
+
+  // Premium Check
+  if (state.plan === 'free' && !state.verificationMode) {
+    showToast('✨ Upgrade to Pro or Team to share with your workspace!');
+    setTimeout(() => openPaymentModal('team'), 1000);
     return;
   }
 

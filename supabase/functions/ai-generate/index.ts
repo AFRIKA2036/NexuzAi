@@ -34,9 +34,6 @@ Deno.serve(async (req) => {
       return json({ error: 'Request is too large', requestId }, 413, cors.headers);
     }
 
-    const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
-    if (!openrouterKey) return json({ error: 'AI provider is not configured', requestId }, 500, cors.headers);
-
     const authHeader = req.headers.get('Authorization') || '';
     if (!authHeader.startsWith('Bearer ')) return json({ error: 'Unauthorized', requestId }, 401, cors.headers);
 
@@ -52,19 +49,14 @@ Deno.serve(async (req) => {
     const { data: userData, error: userError } = await userClient.auth.getUser();
     if (userError || !userData.user) return json({ error: 'Unauthorized', requestId }, 401, cors.headers);
 
+    const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
+    if (!openrouterKey) return json({ error: 'AI provider is not configured', requestId }, 500, cors.headers);
+
     const body = await req.json();
     const validation = validateRequestBody(body);
     if (!validation.ok) return json({ error: validation.error, requestId }, 400, cors.headers);
 
-    const { data: usageRows, error: usageError } = await userClient.rpc('consume_daily_usage', {
-      p_limit: FREE_DAILY_LIMIT
-    });
-    if (usageError) {
-      console.error('[OBSERVABILITY] usage rpc failed', { requestId, userId: userData.user.id, error: usageError.message });
-      return json({ error: 'Usage check failed', requestId }, 500, cors.headers);
-    }
-
-    const usage = Array.isArray(usageRows) ? usageRows[0] : usageRows;
+    const usage = await consumeDailyUsage(userClient, admin, userData.user.id, requestId);
     if (!usage?.allowed) {
       console.warn('[OBSERVABILITY] limit reached', { requestId, userId: userData.user.id, count: usage?.request_count });
       return json({
@@ -75,58 +67,41 @@ Deno.serve(async (req) => {
       }, 429, cors.headers);
     }
 
-    const defaultModels = [
-      Deno.env.get('DEFAULT_AI_MODEL') || 'deepseek/deepseek-v4-flash:free',
-      'nvidia/nemotron-3-super-120b-a12b:free',
-      'openai/gpt-oss-120b:free'
-    ];
+    const defaultModels = getConfiguredModels();
 
-    const providerModels = body.model && body.model !== 'auto'
-        ? (Array.isArray(body.model) ? body.model : [body.model])
-        : defaultModels;
+    const requestedModels = body.model && body.model !== 'auto'
+      ? (Array.isArray(body.model) ? body.model : [body.model])
+      : defaultModels;
 
-    const providerBody = {
-      models: providerModels,
-      messages: body.messages,
-      max_tokens: Math.min(Number(body.max_tokens || 4096), 4096),
-      temperature: clamp(Number(body.temperature ?? 0.7), 0, 1.2),
-      stream: false
-    };
-
-    const providerResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openrouterKey}`,
-        'HTTP-Referer': Deno.env.get('APP_URL') || 'http://localhost',
-        'X-Title': 'NexuzAI'
-      },
-      body: JSON.stringify(providerBody),
-      signal: AbortSignal.timeout(75_000)
-    });
-
-    const result = await providerResponse.json().catch(() => ({}));
+    const providerResult = await callOpenRouterWithFallbacks(openrouterKey, requestedModels, body);
+    const result = providerResult.result;
     const latency = Date.now() - startTime;
 
-    if (!providerResponse.ok) {
+    if (!providerResult.ok) {
+      const providerError = getProviderErrorMessage(result);
       console.error('[OBSERVABILITY] provider error', { 
         requestId, 
         userId: userData.user.id, 
-        status: providerResponse.status, 
+        status: providerResult.status, 
         latency,
+        attemptedModels: providerResult.attemptedModels,
         result 
       });
-      return json({ error: 'AI provider request failed', requestId }, providerResponse.status, cors.headers);
+      return json({ error: `AI provider request failed: ${providerError}`, requestId }, providerResult.status, cors.headers);
     }
 
     const output = result.choices?.[0]?.message?.content || '';
+    if (!output.trim()) {
+      console.error('[OBSERVABILITY] empty provider response', { requestId, userId: userData.user.id, result });
+      return json({ error: 'AI provider returned an empty response', requestId }, 502, cors.headers);
+    }
     const usageData = result.usage || {};
 
     console.info('[OBSERVABILITY] generation success', {
       requestId,
       userId: userData.user.id,
       agentId: body.agent_id,
-      model: result.model || (Array.isArray(providerModels) ? providerModels[0] : providerModels),
+      model: result.model || providerResult.model,
       latency,
       promptTokens: usageData.prompt_tokens,
       completionTokens: usageData.completion_tokens,
@@ -157,6 +132,116 @@ Deno.serve(async (req) => {
     return json({ error: 'Unexpected server error', requestId }, 500, cors.headers);
   }
 });
+
+async function consumeDailyUsage(userClient: any, admin: any, userId: string, requestId: string) {
+  const { data: usageRows, error: usageError } = await userClient.rpc('consume_daily_usage', {
+    p_limit: FREE_DAILY_LIMIT
+  });
+
+  if (!usageError) return Array.isArray(usageRows) ? usageRows[0] : usageRows;
+
+  console.error('[OBSERVABILITY] usage rpc failed; using fallback counter', {
+    requestId,
+    userId,
+    error: usageError.message,
+    code: usageError.code
+  });
+
+  const { data: profile, error: profileError } = await admin
+    .from('profiles')
+    .select('plan')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (profileError) throw new Error(`Usage profile lookup failed: ${profileError.message}`);
+
+  const plan = profile?.plan || 'free';
+  if (plan === 'pro' || plan === 'team') {
+    return { allowed: true, request_count: 0, plan };
+  }
+
+  const usageDate = new Date().toISOString().slice(0, 10);
+  const { data: existing, error: existingError } = await admin
+    .from('usage_daily')
+    .select('request_count')
+    .eq('user_id', userId)
+    .eq('usage_date', usageDate)
+    .maybeSingle();
+
+  if (existingError) throw new Error(`Usage lookup failed: ${existingError.message}`);
+
+  const currentCount = Number(existing?.request_count || 0);
+  if (currentCount >= FREE_DAILY_LIMIT) {
+    return { allowed: false, request_count: currentCount, plan };
+  }
+
+  const nextCount = currentCount + 1;
+  const { error: upsertError } = await admin
+    .from('usage_daily')
+    .upsert({
+      user_id: userId,
+      usage_date: usageDate,
+      request_count: nextCount,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,usage_date' });
+
+  if (upsertError) throw new Error(`Usage update failed: ${upsertError.message}`);
+  return { allowed: true, request_count: nextCount, plan };
+}
+
+async function callOpenRouterWithFallbacks(openrouterKey: string, models: string[], body: Record<string, unknown>): Promise<any> {
+  const attemptedModels: string[] = [];
+  let lastStatus = 502;
+  let lastResult: Record<string, unknown> = { error: 'No models configured' };
+
+  for (const model of models.map((value) => String(value).trim()).filter(Boolean)) {
+    attemptedModels.push(model);
+
+    const providerBody = {
+      model,
+      messages: body.messages,
+      max_tokens: Math.min(Number(body.max_tokens || 4096), 4096),
+      temperature: clamp(Number(body.temperature ?? 0.7), 0, 1.2),
+      stream: false
+    };
+
+    const providerResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openrouterKey}`,
+        'HTTP-Referer': Deno.env.get('APP_URL') || 'http://localhost',
+        'X-Title': 'NexuzAI'
+      },
+      body: JSON.stringify(providerBody),
+      signal: AbortSignal.timeout(75_000)
+    });
+
+    const result = await providerResponse.json().catch(() => ({}));
+    if (providerResponse.ok) {
+      return {
+        ok: true,
+        status: providerResponse.status,
+        result,
+        model,
+        attemptedModels
+      };
+    }
+
+    lastStatus = providerResponse.status;
+    lastResult = result;
+
+    if (![400, 404, 429, 500, 502, 503, 504].includes(providerResponse.status)) break;
+  }
+
+  return {
+    ok: false,
+    status: lastStatus,
+    result: lastResult,
+    model: attemptedModels[0],
+    attemptedModels
+  };
+}
 
 function validateRequestBody(body: Record<string, unknown>) {
   if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid request body' };
@@ -218,6 +303,31 @@ function requiredEnv(name: string) {
 function clamp(value: number, min: number, max: number) {
   if (Number.isNaN(value)) return min;
   return Math.max(min, Math.min(max, value));
+}
+
+function getConfiguredModels() {
+  const configured = Deno.env.get('OPENROUTER_MODEL_FALLBACKS') || Deno.env.get('DEFAULT_AI_MODEL') || '';
+  const models = configured
+    .split(',')
+    .map((model) => model.trim())
+    .filter(Boolean);
+
+  return models.length ? models : [
+    'nvidia/nemotron-3-super-120b-a12b:free'
+  ];
+}
+
+function getProviderErrorMessage(result: Record<string, unknown>) {
+  const error = result?.error;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+
+  const detail = result?.detail;
+  if (typeof detail === 'string' && detail.trim()) return detail;
+  return 'unknown provider error';
 }
 
 function json(payload: unknown, status = 200, headers: Record<string, string>) {

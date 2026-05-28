@@ -24,7 +24,10 @@ async function initSupabase() {
   const cfg = window.NEXUZ_SUPABASE_CONFIG;
   supabaseState.client = window.supabase.createClient(cfg.url, cfg.anonKey);
   supabaseState.ready = true;
-  if (cfg.aiFunctionUrl && window.CONFIG) window.CONFIG.cloudProxyUrl = cfg.aiFunctionUrl;
+  if (window.CONFIG) {
+    const projectUrl = String(cfg.url || '').replace(/\/+$/, '');
+    window.CONFIG.cloudProxyUrl = cfg.aiFunctionUrl || `${projectUrl}/functions/v1/ai-generate`;
+  }
 
   const { data } = await supabaseState.client.auth.getSession();
   supabaseState.session = data.session;

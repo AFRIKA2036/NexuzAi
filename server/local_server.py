@@ -6,7 +6,9 @@ import hashlib
 import hmac
 import time
 import httpx
-from fastapi import FastAPI, Request, HTTPException
+from typing import List, Optional, Union
+from pydantic import BaseModel, Field, validator
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -14,6 +16,44 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI()
+
+# Constants for validation
+MAX_MESSAGES = 10
+MAX_CONTENT_CHARS = 10000
+ALLOWED_ROLES = {"system", "user", "assistant"}
+
+class Message(BaseModel):
+    role: str
+    content: str
+
+    @validator("role")
+    def validate_role(cls, v):
+        if v not in ALLOWED_ROLES:
+            raise ValueError(f"Role must be one of {ALLOWED_ROLES}")
+        return v
+
+    @validator("content")
+    def validate_content(cls, v):
+        if not v.strip():
+            raise ValueError("Content cannot be empty")
+        if len(v) > MAX_CONTENT_CHARS:
+            raise ValueError(f"Content exceeds maximum length of {MAX_CONTENT_CHARS} characters")
+        return v
+
+class ChatCompletionRequest(BaseModel):
+    model: Optional[Union[str, List[str]]] = "auto"
+    messages: List[Message]
+    temperature: Optional[float] = Field(0.7, ge=0, le=1.2)
+    max_tokens: Optional[int] = Field(2048, ge=1, le=4096)
+    stream: Optional[bool] = False
+
+    @validator("messages")
+    def validate_messages(cls, v):
+        if not v:
+            raise ValueError("Messages list cannot be empty")
+        if len(v) > MAX_MESSAGES:
+            raise ValueError(f"Messages list exceeds maximum of {MAX_MESSAGES}")
+        return v
 
 # Development-only usage tracker used when LOCAL_PROXY_REQUIRE_AUTH=false.
 usage_stats = {}
@@ -25,42 +65,47 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-LOCAL_PROXY_REQUIRE_AUTH = os.getenv("LOCAL_PROXY_REQUIRE_AUTH", "true").lower() not in {"0", "false", "no"}
-ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "").split(",") if origin.strip()]
+LOCAL_PROXY_REQUIRE_AUTH = os.getenv("LOCAL_PROXY_REQUIRE_AUTH", "false").lower() not in {"0", "false", "no"}
+# Default to allow all in development if no origins specified
+origins_env = os.getenv("ALLOWED_ORIGINS", "")
+ALLOWED_ORIGINS = [o.strip() for o in origins_env.split(",") if o.strip()] if origins_env else ["*"]
 FREE_DAILY_LIMIT = int(os.getenv("FREE_DAILY_LIMIT", "2"))
 NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODEL_PATH = os.getenv("MODEL_PATH", "./server/models/google_gemma-4-31B-it-Q4_K_M.gguf")
 
+DEFAULT_OPENROUTER_MODELS = [
+    model.strip()
+    for model in os.getenv(
+        "OPENROUTER_MODEL_FALLBACKS",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+    ).split(",")
+    if model.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Use-Local", "X-User-Email", "X-User-Plan"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://*.supabase.co; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: https://*.supabase.co; connect-src 'self' http://localhost:8000 https://*.supabase.co https://api.paystack.co https://openrouter.ai https://integrate.api.nvidia.com; frame-ancestors 'none';"
+    return response
 
 # Model Pool for Routing with Fallbacks (Verified May 2026)
 MODEL_POOL = {
-    "reasoning": [
-        "openai/gpt-oss-120b:free",
-        "nvidia/nemotron-3-super-120b-a12b:free",
-        "deepseek/deepseek-v4-flash:free"
-    ],
-    "creative": [
-        "deepseek/deepseek-v4-flash:free",
-        "nvidia/nemotron-3-super-120b-a12b:free",
-        "openai/gpt-oss-120b:free"
-    ],
-    "coding": [
-        "deepseek/deepseek-v4-flash:free",
-        "qwen/qwen3-coder:free",
-        "nvidia/nemotron-3-super-120b-a12b:free"
-    ],
-    "fast": [
-        "deepseek/deepseek-v4-flash:free",
-        "nvidia/nemotron-3-super-120b-a12b:free",
-        "meta-llama/llama-3.2-3b-instruct:free"
-    ]
+    "reasoning": DEFAULT_OPENROUTER_MODELS,
+    "creative": DEFAULT_OPENROUTER_MODELS,
+    "coding": DEFAULT_OPENROUTER_MODELS,
+    "fast": DEFAULT_OPENROUTER_MODELS,
 }
 
 def route_model(messages):
@@ -244,15 +289,15 @@ async def local_inference_stream(messages, system_prompt):
             yield f"data: {json.dumps({'choices': [{'delta': {'content': text}}]})}\n\n"
         yield "data: [DONE]\n\n"
     else:
-        # Simulation Mode
+        # Simulation Mode (Generic & Safe)
         yield f"data: {json.dumps({'choices': [{'delta': {'content': '<thought>'}}]})}\n\n"
         await asyncio.sleep(0.5)
-        thoughts = ["Initializing Gemma 4 Local Link...", "Analyzing system constraints...", "Generating offline response..."]
+        thoughts = ["Establishing secure neural link...", "Processing request parameters...", "Optimizing local resources..."]
         for t in thoughts:
             yield f"data: {json.dumps({'choices': [{'delta': {'content': t + '\\n'}}]})}\n\n"
             await asyncio.sleep(0.3)
         yield f"data: {json.dumps({'choices': [{'delta': {'content': '</thought>\\n\\n'}}]})}\n\n"
-        response = "This is a **simulated** response from the local server. Install `llama-cpp-python` and download the model file to enable real inference."
+        response = "NexuzAI is currently running in **Offline Mode**. To enable full AI intelligence, please switch to **Cloud Mode** in the navigation bar or ensure the local AI engine is properly configured."
         for word in response.split():
             yield f"data: {json.dumps({'choices': [{'delta': {'content': word + ' '}}]})}\n\n"
             await asyncio.sleep(0.05)
@@ -278,15 +323,19 @@ async def openrouter_proxy_stream(body):
             print(f"Smart Router selected: {body['model']}")
     elif isinstance(body.get("model"), list):
         # If the frontend already sent a list in 'model', move it to 'models'
-        body["models"] = body.pop("model")[:3]
+        body["models"] = body.pop("model")[:6]
+    elif not body.get("models"):
+        body["models"] = DEFAULT_OPENROUTER_MODELS
+        body.pop("model", None)
         
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0, read=None)) as client:
             async with client.stream("POST", OPENROUTER_API_URL, json=body, headers=headers) as r:
                 if r.status_code != 200:
                     error_text = await r.aread()
-                    print(f"OpenRouter Error: {r.status_code} - {error_text.decode()}")
-                    yield f"data: {json.dumps({'error': {'message': f'OpenRouter Error {r.status_code}: {error_text.decode()}'}})}\n\n"
+                    provider_error = parse_provider_error(error_text)
+                    print(f"OpenRouter Error: {r.status_code} - {provider_error}")
+                    yield f"data: {json.dumps({'error': {'message': f'OpenRouter Error {r.status_code}: {provider_error}'}})}\n\n"
                     return
 
                 async for line in r.aiter_lines():
@@ -296,6 +345,19 @@ async def openrouter_proxy_stream(body):
         print(f"Proxy Error: {e}")
         yield f"data: {json.dumps({'error': {'message': str(e)}})}\n\n"
         yield "data: [DONE]\n\n"
+
+def parse_provider_error(error_bytes):
+    text = error_bytes.decode("utf-8", errors="replace")
+    try:
+        data = json.loads(text)
+        error = data.get("error")
+        if isinstance(error, dict) and error.get("message"):
+            return str(error["message"])
+        if isinstance(error, str):
+            return error
+    except Exception:
+        pass
+    return text[:500] or "unknown provider error"
 
 async def cloud_proxy_stream(body):
     headers = {
@@ -321,8 +383,8 @@ async def health():
     }
 
 @app.post("/v1/chat/completions")
-async def chat_completions(request: Request):
-    body = await request.json()
+async def chat_completions(req_body: ChatCompletionRequest, request: Request):
+    body = req_body.dict()
     use_local = request.headers.get("X-Use-Local") == "true"
     user = await get_request_user(request)
     await consume_usage_limit(user)

@@ -81,9 +81,14 @@ To enable payments:
    ```bash
    supabase secrets set PAYSTACK_SECRET_KEY=sk_live_...
    ```
-4. Deploy the verification function:
+4. Deploy the payment functions:
    ```bash
-   supabase functions deploy paystack-verify
+   supabase functions deploy paystack-initialize --project-ref YOUR_PROJECT_REF
+   supabase functions deploy paystack-verify --project-ref YOUR_PROJECT_REF
+   ```
+   If you use Paystack webhooks, deploy the webhook without JWT verification:
+   ```bash
+   supabase functions deploy paystack-webhook --no-verify-jwt --project-ref YOUR_PROJECT_REF
    ```
 
 > ⚠️ **Security Note**: For production use, move the API call to a backend server to keep your API key private. Never expose API keys in client-side code for public-facing apps.
@@ -98,7 +103,12 @@ Production AI generation should go through `supabase/functions/ai-generate`. Con
 supabase secrets set APP_URL=https://your-app.example
 supabase secrets set ALLOWED_ORIGINS=https://your-app.example
 supabase secrets set OPENROUTER_API_KEY=your-provider-key
+supabase functions deploy ai-generate --project-ref YOUR_PROJECT_REF
 ```
+
+The browser config can omit `aiFunctionUrl`; when Supabase is configured, the app derives it as
+`<SUPABASE_URL>/functions/v1/ai-generate`. To override the task-generation model pool, set a
+comma-separated `OPENROUTER_MODEL_FALLBACKS` secret or local environment variable.
 
 The local FastAPI proxy in `server/local_server.py` is for development and private offline mode. It requires Supabase JWT auth by default and uses the Supabase usage RPC when configured:
 
@@ -146,5 +156,13 @@ Works on any static hosting:
 - **Vercel**: Import from GitHub
 
 ---
+
+---
+
+## 📬 Contact
+
+For support, inquiries, or more information:
+- **Email:** [oheneamoabeng2035@gmail.com](mailto:oheneamoabeng2035@gmail.com)
+- **WhatsApp:** [+233-540-556-225](https://wa.me/233540556225) / [+233-200-802-850](https://wa.me/233200802850)
 
 Built with ❤️ using NexuzAI

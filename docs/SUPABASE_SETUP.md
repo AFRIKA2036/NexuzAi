@@ -115,6 +115,13 @@ Security controls now expected in production:
 - Request body size, message count, prompt length, and agent IDs are validated before provider calls.
 - Generation records are saved by the server path, not trusted from the browser.
 
+Deploy the production AI function after setting its secrets:
+
+```bash
+supabase secrets set OPENROUTER_API_KEY=your-provider-key APP_URL=https://your-app.example ALLOWED_ORIGINS=https://your-app.example --project-ref YOUR_PROJECT_REF
+supabase functions deploy ai-generate --project-ref YOUR_PROJECT_REF
+```
+
 FastAPI local proxy environment:
 
 ```text
@@ -136,10 +143,28 @@ Concurrency behavior:
 
 ## 7. Billing
 
-Replace the fake card form with Stripe Checkout:
+Payments use Paystack hosted checkout. The browser should call Supabase Edge
+Functions and should not receive the Paystack secret key.
 
-- `create-checkout-session` server function
-- `stripe-webhook` server function
-- webhook updates `profiles.plan`, `stripe_customer_id`, and `stripe_subscription_id`
+Required secrets:
 
-Do not collect card numbers in this app.
+```bash
+supabase secrets set PAYSTACK_SECRET_KEY=sk_live_... --project-ref YOUR_PROJECT_REF
+```
+
+Required deployments:
+
+```bash
+supabase functions deploy paystack-initialize --project-ref YOUR_PROJECT_REF
+supabase functions deploy paystack-verify --project-ref YOUR_PROJECT_REF
+```
+
+Optional webhook deployment:
+
+```bash
+supabase functions deploy paystack-webhook --no-verify-jwt --project-ref YOUR_PROJECT_REF
+```
+
+If the button says it cannot send a request to the Edge Function, check that
+`paystack-initialize` exists in Supabase Dashboard > Edge Functions for the same
+project ref used in `js/supabase-config.js`.

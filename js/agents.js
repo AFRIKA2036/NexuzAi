@@ -12,16 +12,17 @@ function promptSection(title, value, fallback = 'Not provided') {
   return `### ${title} ###\n${value || fallback}\n### END ${title} ###`;
 }
 
+const TASK_MODEL_FALLBACKS = [
+  'nvidia/nemotron-3-super-120b-a12b:free'
+];
+
 const AGENTS = {
   resume: {
     icon: '📄',
     title: 'Resume Writer',
     desc: 'Generate a professional, ATS-friendly resume',
     tier: 'free',
-    fallbacks: ['qwen/qwen3-coder:free',
-      'nvidia/nemotron-3-super-120b-a12b:free',
-      'openai/gpt-oss-120b:free',
-      'deepseek/deepseek-v4-flash:free'],
+    fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'job_title', label: 'TARGET JOB TITLE', type: 'input', placeholder: 'e.g. Senior Software Engineer at Google' },
       { id: 'cv_file', label: 'UPLOAD CURRENT CV (PDF, TXT, DOCX)', type: 'file', accept: '.pdf,.txt,.docx' },
@@ -38,10 +39,7 @@ const AGENTS = {
     title: 'Email Drafter',
     desc: 'Compose professional emails in seconds',
     tier: 'free',
-    fallbacks: ['qwen/qwen3-coder:free',
-      'nvidia/nemotron-3-super-120b-a12b:free',
-      'openai/gpt-oss-120b:free',
-      'deepseek/deepseek-v4-flash:free'],
+    fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'email_type', label: 'EMAIL TYPE', type: 'select', options: ['Professional / Formal', 'Follow-up', 'Cold Outreach', 'Apology', 'Resignation', 'Thank You', 'Complaint', 'Request / Ask'] },
       { id: 'recipient', label: 'RECIPIENT (name/role)', type: 'input', placeholder: 'e.g. Hiring Manager / Dr. Smith / Team' },
@@ -57,10 +55,7 @@ const AGENTS = {
     title: 'Study Note Converter',
     desc: 'Transform text into structured study notes',
     tier: 'free',
-    fallbacks: ['qwen/qwen3-coder:free',
-      'nvidia/nemotron-3-super-120b-a12b:free',
-      'openai/gpt-oss-120b:free',
-      'deepseek/deepseek-v4-flash:free'],
+    fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'source_file', label: 'UPLOAD SOURCE DOCUMENT', type: 'file', accept: '.pdf,.txt,.docx' },
       { id: 'raw_text', label: 'OR PASTE TEXT', type: 'textarea', placeholder: 'Paste your lecture notes, textbook chapter, article, or any raw text...', rows: 7 },
@@ -76,10 +71,7 @@ const AGENTS = {
     title: 'Contract Explainer',
     desc: 'Plain-English breakdown of any legal document',
     tier: 'pro',
-    fallbacks: ['qwen/qwen3-coder:free',
-      'nvidia/nemotron-3-super-120b-a12b:free',
-      'openai/gpt-oss-120b:free',
-      'deepseek/deepseek-v4-flash:free'],
+    fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'contract_file', label: 'UPLOAD CONTRACT / DOCUMENT', type: 'file', accept: '.pdf,.txt,.docx' },
       { id: 'contract_text', label: 'OR PASTE LEGAL TEXT', type: 'textarea', placeholder: 'Paste the contract, agreement, NDA, lease, terms of service...', rows: 7 },
@@ -94,10 +86,7 @@ const AGENTS = {
     title: 'Trip Planner',
     desc: 'Full travel itinerary with hotels, activities & tips',
     tier: 'pro',
-    fallbacks: ['qwen/qwen3-coder:free',
-      'nvidia/nemotron-3-super-120b-a12b:free',
-      'openai/gpt-oss-120b:free',
-      'deepseek/deepseek-v4-flash:free'],
+    fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'destination', label: 'DESTINATION', type: 'input', placeholder: 'e.g. Tokyo, Japan' },
       { id: 'duration', label: 'DURATION', type: 'input', placeholder: 'e.g. 7 days, 2 weeks' },
@@ -114,10 +103,7 @@ const AGENTS = {
     title: 'Event Planner',
     desc: 'Full event planning with checklist, timeline & budget',
     tier: 'pro',
-    fallbacks: ['qwen/qwen3-coder:free',
-      'nvidia/nemotron-3-super-120b-a12b:free',
-      'openai/gpt-oss-120b:free',
-      'deepseek/deepseek-v4-flash:free'],
+    fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'event_type', label: 'EVENT TYPE', type: 'select', options: ['Wedding', 'Birthday Party', 'Corporate Event', 'Conference', 'Graduation Party', 'Baby Shower', 'Charity Gala', 'Product Launch'] },
       { id: 'guests', label: 'NUMBER OF GUESTS', type: 'input', placeholder: 'e.g. 50, 150, 500' },
@@ -134,10 +120,7 @@ const AGENTS = {
     title: 'Cover Letter Writer',
     desc: 'Compelling, tailored cover letters',
     tier: 'free',
-    fallbacks: ['qwen/qwen3-coder:free',
-      'nvidia/nemotron-3-super-120b-a12b:free',
-      'openai/gpt-oss-120b:free',
-      'deepseek/deepseek-v4-flash:free'],
+    fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'job_title', label: 'JOB TITLE APPLYING FOR', type: 'input', placeholder: 'e.g. Marketing Manager at Tesla' },
       { id: 'company', label: 'COMPANY NAME', type: 'input', placeholder: 'e.g. Tesla, Google, Startup XYZ' },
@@ -154,10 +137,7 @@ const AGENTS = {
     title: 'LinkedIn Optimizer',
     desc: 'Maximize your LinkedIn profile visibility',
     tier: 'pro',
-    fallbacks: ['qwen/qwen3-coder:free',
-      'nvidia/nemotron-3-super-120b-a12b:free',
-      'openai/gpt-oss-120b:free',
-      'deepseek/deepseek-v4-flash:free'],
+    fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'current_headline', label: 'CURRENT HEADLINE (optional)', type: 'input', placeholder: 'e.g. Software Engineer | Python | 5 years exp' },
       { id: 'target_role', label: 'TARGET ROLE / INDUSTRY', type: 'input', placeholder: 'e.g. Senior Product Manager in FinTech' },

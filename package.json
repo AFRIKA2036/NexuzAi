@@ -1,5 +1,8 @@
 {
   "scripts": {
     "test": "node --test"
+  },
+  "devDependencies": {
+    "supabase": "^2.101.0"
   }
 }
