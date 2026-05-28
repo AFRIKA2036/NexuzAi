@@ -16,10 +16,10 @@ const state = {
 // ─── API CONFIG ───────────────────────────────
 const CONFIG = {
   useLocal: false, // Default: use Cloud Mode (Supabase edge function)
-  localProxyUrl: 'http://localhost:8001/v1/chat/completions',
+  localProxyUrl: 'http://localhost:8000/v1/chat/completions',
   cloudProxyUrl: '', // Set by supabase-config.js via supabase-service.js
   get proxyUrl() { return this.useLocal ? this.localProxyUrl : (this.cloudProxyUrl || this.localProxyUrl); },
-  healthUrl: 'http://localhost:8001/health',
+  healthUrl: 'http://localhost:8000/health',
   model: 'nvidia/nemotron-3-super-120b-a12b:free'
 };
 window.CONFIG = CONFIG;
@@ -580,7 +580,7 @@ async function runAgent() {
         We couldn't reach the local AI engine. This usually happens if the engine is offline or a browser security setting is blocking the connection.<br><br>
         <strong>Quick Solution:</strong><br>
         1. Switch <strong>Offline Mode</strong> OFF in the navigation bar to use our Cloud AI.<br>
-        2. Ensure the local server is running on port 8001.<br><br>
+        2. Ensure the local server is running on port 8000.<br><br>
         <button class="btn-ghost" style="margin-top:0.5rem;width:100%;border-color:rgba(240,168,74,0.3)" onclick="showDemoOutput()">See Sample Output →</button>
       </div>`;
     } else if (isNetworkErr && isUsingCloud) {
