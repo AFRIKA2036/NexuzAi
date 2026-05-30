@@ -7,49 +7,62 @@
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div id="login-overlay">
-        <div style="text-align: center;">
-            <h2>Admin Verification</h2>
-            <p id="auth-status">Checking credentials...</p>
-            <button id="login-btn" style="display:none; padding: 10px 20px;">Login with Admin Account</button>
+        <div style="text-align: center; max-width: 400px; padding: 2rem;">
+            <h2 style="font-size: 1.5rem; margin-bottom: 1rem;">Admin Verification</h2>
+            <p id="auth-status" style="margin-bottom: 1.5rem; color: #64748b;">Verifying your administrator privileges...</p>
+            <button id="login-btn" style="display:none; width: 100%; padding: 0.75rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Login with Admin Account</button>
         </div>
     </div>
 
-    <nav class="sidebar">
+    <header class="header-mobile">
+        <h2 style="margin: 0; font-size: 1.25rem;">NexuzAI Admin</h2>
+        <button class="menu-toggle" id="menu-toggle">☰</button>
+    </header>
+
+    <nav class="sidebar" id="sidebar">
         <h2>NexuzAI Admin</h2>
-        <ul style="list-style: none; padding: 0; margin-top: 2rem;">
-            <li><a href="#" style="color: white; text-decoration: none;">Dashboard</a></li>
-            <li><a href="#" id="logout-btn" style="color: #fca5a5; text-decoration: none;">Logout</a></li>
+        <ul>
+            <li><a href="#" class="active">Dashboard</a></li>
+            <li style="margin-top: auto; padding-top: 2rem;">
+                <a href="#" id="logout-btn" style="color: #fca5a5;">Logout</a>
+            </li>
         </ul>
     </nav>
 
     <main class="main-content">
-        <h1>System Overview</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <h1 style="margin: 0; font-size: 1.875rem;">Dashboard</h1>
+            <button id="refresh-btn" style="padding: 0.5rem 1rem; background: white; border: 1px solid var(--border); border-radius: 6px; cursor: pointer;">Refresh Data</button>
+        </div>
         
         <div class="stats-grid">
             <div class="stat-card">
                 <h3>Total Users</h3>
-                <p id="total-users">0</p>
+                <p id="total-users">--</p>
             </div>
             <div class="stat-card">
                 <h3>Total Generations</h3>
-                <p id="total-gens">0</p>
+                <p id="total-gens">--</p>
             </div>
             <div class="stat-card">
                 <h3>Active Today</h3>
-                <p id="active-today">0</p>
+                <p id="active-today">--</p>
             </div>
         </div>
 
         <div class="stat-card" style="margin-bottom: 2rem;">
-            <h2>User Growth (Last 7 Days)</h2>
-            <canvas id="signupChart" height="100"></canvas>
+            <h2 style="font-size: 1.125rem; margin-top: 0; margin-bottom: 1.5rem;">User Growth (Last 7 Days)</h2>
+            <div style="position: relative; height: 300px;">
+                <canvas id="signupChart"></canvas>
+            </div>
         </div>
 
         <div class="table-container">
-            <h2 style="padding: 1rem;">Recent Activity</h2>
+            <h2 style="padding: 1.5rem; margin: 0; font-size: 1.125rem;">Recent Activity</h2>
             <table id="activity-table">
                 <thead>
                     <tr>
@@ -60,13 +73,12 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Data will be injected here -->
+                    <tr><td colspan="4" style="text-align: center; padding: 2rem;">Loading activity...</td></tr>
                 </tbody>
             </table>
         </div>
     </main>
 
-    <!-- Inject public config first -->
     <script src="../js/supabase-config.js"></script>
     <script src="js/admin.js"></script>
 </body>
