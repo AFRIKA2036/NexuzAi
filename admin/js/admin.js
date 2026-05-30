@@ -6,99 +6,65 @@ const sb = supabase.createClient(config.url, config.anonKey);
 const overlay = document.getElementById('login-overlay');
 const authStatus = document.getElementById('auth-status');
 const authForm = document.getElementById('auth-form');
-const authSwitchLink = document.getElementById('auth-switch-link');
 const portalTitle = document.getElementById('portal-title');
 const authSubmitBtn = document.getElementById('auth-submit-btn');
 const sidebar = document.getElementById('sidebar');
-const menuToggle = document.getElementById('menu-toggle');
-
-let authMode = 'login'; // 'login' or 'signup'
-let growthChart = null;
 
 async function checkAdmin() {
     try {
         const { data: { session }, error } = await sb.auth.getSession();
         
-        if (error || !session) {
-            return; // Stay on portal
-        }
-
-        const isAdmin = session.user.app_metadata?.is_admin;
-        
-        if (isAdmin) {
-            overlay.style.display = 'none';
-            initDashboard();
-        } else {
-            authStatus.innerText = "ACCESS DENIED: Insufficient Privileges.";
-            authStatus.style.color = "#ef4444";
-            portalTitle.innerText = "Secure Entry Required";
-            authSubmitBtn.innerText = "Switch Credentials";
-            
-            // Allow logging out to try another account
-            authForm.onsubmit = async (e) => {
-                e.preventDefault();
-                await sb.auth.signOut();
-                window.location.reload();
-            };
+        // If already logged in, check admin status immediately
+        if (session) {
+            const isAdmin = session.user.app_metadata?.is_admin;
+            if (isAdmin) {
+                overlay.style.display = 'none';
+                initDashboard();
+                return;
+            } else {
+                authStatus.innerText = "ACCESS DENIED: Non-Admin Account.";
+                authStatus.style.color = "#ef4444";
+                authSubmitBtn.innerText = "Try Different Account";
+                authForm.onsubmit = async (e) => {
+                    e.preventDefault();
+                    await sb.auth.signOut();
+                    window.location.reload();
+                };
+                return;
+            }
         }
     } catch (err) {
         console.error(err);
     }
 }
 
-// Auth UI Switcher
-authSwitchLink.onclick = (e) => {
-    e.preventDefault();
-    authMode = authMode === 'login' ? 'signup' : 'login';
-    
-    if (authMode === 'signup') {
-        portalTitle.innerText = "Create Identity";
-        authStatus.innerText = "Enter details to register for access.";
-        authSubmitBtn.innerText = "Request Account";
-        authSwitchLink.innerText = "Existing Operator?";
-        document.getElementById('switch-text').innerText = "Already have an account?";
-    } else {
-        portalTitle.innerText = "Nexus Portal";
-        authStatus.innerText = "Authorized access only.";
-        authSubmitBtn.innerText = "Initialize Link";
-        authSwitchLink.innerText = "Request Access";
-        document.getElementById('switch-text').innerText = "Don't have an admin account?";
-    }
-};
-
 authForm.onsubmit = async (e) => {
     e.preventDefault();
     const email = document.getElementById('auth-email').value;
-    const password = document.getElementById('auth-password').value;
     
     authSubmitBtn.disabled = true;
-    authSubmitBtn.innerText = authMode === 'login' ? 'Verifying...' : 'Processing...';
+    authSubmitBtn.innerText = 'Transmitting Link...';
     
     try {
-        let result;
-        if (authMode === 'login') {
-            result = await sb.auth.signInWithPassword({ email, password });
-        } else {
-            result = await sb.auth.signUp({ email, password });
-            if (!result.error) {
-                authStatus.innerText = "Registration Initialized. Please sign in.";
-                authStatus.style.color = "#4af0c8";
-                authSwitchLink.click(); // Switch back to login
-                authSubmitBtn.disabled = false;
-                return;
+        // Use Magic Link (OTP) for passwordless login
+        const { error } = await sb.auth.signInWithOtp({
+            email: email,
+            options: {
+                emailRedirectTo: window.location.href // Redirect back to this admin page
             }
-        }
+        });
         
-        if (result.error) throw result.error;
+        if (error) throw error;
         
-        // After successful auth, the page will reload or checkAdmin will find the session
-        window.location.reload();
+        authStatus.innerText = "Link Transmitted! Check your email to enter the Nexus.";
+        authStatus.style.color = "#4af0c8";
+        authSubmitBtn.innerText = "Link Sent";
         
     } catch (err) {
         authStatus.innerText = "ERROR: " + err.message;
         authStatus.style.color = "#ef4444";
         authSubmitBtn.disabled = false;
-        authSubmitBtn.innerText = authMode === 'login' ? 'Initialize Link' : 'Request Account';
+        authSubmitBtn.innerText = "Resend Link";
     }
 };
 
