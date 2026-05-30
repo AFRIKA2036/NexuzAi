@@ -6,6 +6,7 @@ const sb = supabase.createClient(config.url, config.anonKey);
 const overlay = document.getElementById('login-overlay');
 const authStatus = document.getElementById('auth-status');
 const loginBtn = document.getElementById('login-btn');
+const adminLoginForm = document.getElementById('admin-login-form');
 const sidebar = document.getElementById('sidebar');
 const menuToggle = document.getElementById('menu-toggle');
 
@@ -28,12 +29,7 @@ async function checkAdmin() {
         } else {
             authStatus.innerText = "Access Denied: You do not have administrator privileges.";
             authStatus.style.color = "#ef4444";
-            loginBtn.innerText = "Switch Account";
-            loginBtn.style.display = 'block';
-            loginBtn.onclick = async () => {
-                await sb.auth.signOut();
-                window.location.href = '../index.html';
-            };
+            showLogin(true); // Show "Switch Account"
         }
     } catch (err) {
         authStatus.innerText = "Error verifying admin status.";
@@ -41,12 +37,49 @@ async function checkAdmin() {
     }
 }
 
-function showLogin() {
-    authStatus.innerText = "Please login to access the admin panel.";
-    loginBtn.style.display = 'block';
-    loginBtn.onclick = () => {
-        window.location.href = '../index.html'; 
-    };
+function showLogin(isSwitch = false) {
+    adminLoginForm.style.display = 'block';
+    if (isSwitch) {
+        adminLoginForm.onsubmit = async (e) => {
+            e.preventDefault();
+            await sb.auth.signOut();
+            handleAdminLogin();
+        };
+    } else {
+        adminLoginForm.onsubmit = handleAdminLogin;
+    }
+}
+
+async function handleAdminLogin(e) {
+    if (e) e.preventDefault();
+    const email = document.getElementById('admin-email').value;
+    const password = document.getElementById('admin-password').value;
+    const submitBtn = adminLoginForm.querySelector('button');
+    
+    submitBtn.disabled = true;
+    submitBtn.innerText = 'Verifying...';
+    
+    try {
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        
+        if (error) throw error;
+        
+        // After login, re-check admin status
+        const isAdmin = data.user.app_metadata?.is_admin;
+        if (isAdmin) {
+            window.location.reload();
+        } else {
+            authStatus.innerText = "Access Denied: This account is not an administrator.";
+            authStatus.style.color = "#ef4444";
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Sign In as Admin';
+        }
+    } catch (err) {
+        authStatus.innerText = "Login Failed: " + err.message;
+        authStatus.style.color = "#ef4444";
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Sign In as Admin';
+    }
 }
 
 function initDashboard() {

@@ -11,9 +11,22 @@
 </head>
 <body>
     <div id="login-overlay">
-        <div style="text-align: center; max-width: 400px; padding: 2rem;">
-            <h2 style="font-size: 1.5rem; margin-bottom: 1rem;">Admin Verification</h2>
-            <p id="auth-status" style="margin-bottom: 1.5rem; color: #64748b;">Verifying your administrator privileges...</p>
+        <div style="text-align: center; max-width: 400px; width: 90%; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+            <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Admin Access</h2>
+            <p id="auth-status" style="margin-bottom: 1.5rem; color: #64748b;">Please sign in to your administrator account.</p>
+            
+            <form id="admin-login-form" style="display: none; text-align: left;">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.25rem;">Email Address</label>
+                    <input type="email" id="admin-email" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;">
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.25rem;">Password</label>
+                    <input type="password" id="admin-password" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;">
+                </div>
+                <button type="submit" style="width: 100%; padding: 0.75rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Sign In as Admin</button>
+            </form>
+            
             <button id="login-btn" style="display:none; width: 100%; padding: 0.75rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Login with Admin Account</button>
         </div>
     </div>
