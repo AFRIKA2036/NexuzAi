@@ -4,7 +4,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src * 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; style-src * 'self' 'unsafe-inline' data: blob:; img-src * 'self' data: blob:; connect-src * 'self' data: blob:; frame-ancestors 'none';">
+  
+  <!-- PERFORMANCE: Resource Hints -->
+  <link rel="preconnect" href="https://onanhpeqttqdruruemwr.supabase.co" />
+  <link rel="preconnect" href="https://js.paystack.co" />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="dns-prefetch" href="https://openrouter.ai" />
+
+  <!-- SECURITY: Strict Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.paystack.co https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; img-src 'self' data: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://api.paystack.co https://openrouter.ai https://integrate.api.nvidia.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; frame-ancestors 'none';">
+  
   <title>NexuzAI — Your AI Agent Hub</title>
   <link rel="stylesheet" href="css/style.css" />
   <link
@@ -543,6 +552,20 @@
     </div>
   </section>
 
+  <!-- COOKIE CONSENT BANNER -->
+  <div class="cookie-banner" id="cookieBanner">
+    <div class="cookie-content">
+      <div class="cookie-text">
+        <span class="cookie-icon">🍪</span>
+        <p>We use cookies to enhance your experience and analyze our traffic. By clicking "Accept", you consent to our use of cookies as described in our <a href="docs/PRIVACY.md" style="color:var(--accent); text-decoration:underline;">Privacy Policy</a>.</p>
+      </div>
+      <div class="cookie-actions">
+        <button onclick="acceptCookies()" class="btn-primary" style="padding: 0.5rem 1.25rem; font-size: 0.85rem;">Accept</button>
+        <button onclick="closeCookieBanner()" class="btn-ghost" style="padding: 0.5rem; font-size: 0.85rem; border:none;">✕</button>
+      </div>
+    </div>
+  </div>
+
   <!-- FOOTER -->
   <footer class="footer">
     <div class="footer-brand">
@@ -550,9 +573,9 @@
     </div>
     <p>© 2026 NexuzAI · Powered by OpenRouter · All rights reserved</p>
     <div class="footer-links">
-      <a href="mailto:oheneamoabeng2035@gmail.com">Privacy</a>
+      <a href="docs/PRIVACY.md">Privacy</a>
       <a href="https://wa.me/233540556225">Terms</a>
-      <a href="mailto:oheneamoabeng2035@gmail.com">Contact</a>
+      <a href="mailto:contact@nexuzai.io">Contact</a>
     </div>
   </footer>
 

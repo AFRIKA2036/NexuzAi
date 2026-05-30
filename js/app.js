@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await autoDetectMode(); // Auto-pick local vs cloud based on server availability
   checkServerHealth();
   handlePaymentCallback(); // Check if we returned from Paystack
+  checkCookieConsent(); // COMPLIANCE: Check for cookie banner
   setInterval(checkServerHealth, 30000); // Check health every 30s
 
   // Smooth scroll for anchors
@@ -2090,4 +2091,24 @@ function submitSupportTicket(e) {
       showToast(`💬 Priority Support: Ticket "${subject.substring(0, 15)}..." was marked as Resolved.`);
     }
   }, 15000);
+}
+
+// ─── COOKIE CONSENT ──────────────────────────
+function checkCookieConsent() {
+  const consent = localStorage.getItem('nexuz_cookie_consent');
+  const banner = document.getElementById('cookieBanner');
+  if (!consent && banner) {
+    banner.classList.add('show');
+  }
+}
+
+function acceptCookies() {
+  localStorage.setItem('nexuz_cookie_consent', 'true');
+  closeCookieBanner();
+  showToast('✓ Preferences saved');
+}
+
+function closeCookieBanner() {
+  const banner = document.getElementById('cookieBanner');
+  if (banner) banner.classList.remove('show');
 }
