@@ -3,90 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexuzAI Admin Dashboard</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>Nexus Portal — NexuzAI Admin</title>
+    <link rel="stylesheet" href="/admin/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <div class="bg-orb"></div>
+
+    <!-- Auth Portal -->
     <div id="login-overlay">
-        <div style="text-align: center; max-width: 400px; width: 90%; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
-            <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Admin Access</h2>
-            <p id="auth-status" style="margin-bottom: 1.5rem; color: #64748b;">Please sign in to your administrator account.</p>
+        <div class="portal-card">
+            <span class="portal-logo">⬡</span>
+            <h2 id="portal-title">Nexus Portal</h2>
+            <p id="auth-status" style="color: #94a3b8; margin-bottom: 2rem;">Authorized access only.</p>
             
-            <form id="admin-login-form" style="display: none; text-align: left;">
-                <div style="margin-bottom: 1rem;">
-                    <label style="display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.25rem;">Email Address</label>
-                    <input type="email" id="admin-email" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;">
+            <!-- Unified Auth Form -->
+            <form id="auth-form">
+                <div class="input-group">
+                    <label>Administrator Email</label>
+                    <input type="email" id="auth-email" required placeholder="admin@nexuzai.io">
                 </div>
-                <div style="margin-bottom: 1.5rem;">
-                    <label style="display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.25rem;">Password</label>
-                    <input type="password" id="admin-password" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;">
+                <div class="input-group">
+                    <label>Security Password</label>
+                    <input type="password" id="auth-password" required placeholder="••••••••">
                 </div>
-                <button type="submit" style="width: 100%; padding: 0.75rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Sign In as Admin</button>
+                <button type="submit" class="btn-nexus" id="auth-submit-btn">Initialize Link</button>
             </form>
-            
-            <button id="login-btn" style="display:none; width: 100%; padding: 0.75rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Login with Admin Account</button>
+
+            <div class="portal-switch">
+                <span id="switch-text">Don't have an admin account?</span>
+                <a href="#" id="auth-switch-link">Request Access</a>
+            </div>
         </div>
     </div>
 
+    <!-- Mobile Header -->
     <header class="header-mobile">
-        <h2 style="margin: 0; font-size: 1.25rem;">NexuzAI Admin</h2>
-        <button class="menu-toggle" id="menu-toggle">☰</button>
+        <h2 style="margin: 0; font-size: 1.25rem;">⬡ NexuzAI</h2>
+        <button id="menu-toggle" style="background:none; border:none; color:white; font-size:1.5rem;">☰</button>
     </header>
 
+    <!-- Sidebar -->
     <nav class="sidebar" id="sidebar">
-        <h2>NexuzAI Admin</h2>
+        <h2>⬡ NexuzAI</h2>
         <ul>
-            <li><a href="#" class="active">Dashboard</a></li>
+            <li><a href="#" class="active"><span>📊</span> Dashboard</a></li>
+            <li><a href="#"><span>👥</span> Users</a></li>
+            <li><a href="#"><span>⚙️</span> Settings</a></li>
             <li style="margin-top: auto; padding-top: 2rem;">
-                <a href="#" id="logout-btn" style="color: #fca5a5;">Logout</a>
+                <a href="#" id="logout-btn" style="color: #fca5a5;"><span>⏻</span> System Logout</a>
             </li>
         </ul>
     </nav>
 
+    <!-- Main Dashboard -->
     <main class="main-content">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-            <h1 style="margin: 0; font-size: 1.875rem;">Dashboard</h1>
-            <button id="refresh-btn" style="padding: 0.5rem 1rem; background: white; border: 1px solid var(--border); border-radius: 6px; cursor: pointer;">Refresh Data</button>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem;">
+            <div>
+                <p style="color: var(--primary); font-weight: 700; margin-bottom: 0.5rem; letter-spacing: 0.2em; text-transform: uppercase;">Central Command</p>
+                <h1 style="margin: 0; font-size: 2.5rem;">System Intelligence</h1>
+            </div>
+            <button id="refresh-btn" class="btn-nexus" style="width: auto; padding: 0.75rem 1.5rem; font-size: 0.8rem;">Update Stream</button>
         </div>
         
-        <div class="stats-grid">
+        <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; margin-bottom: 3rem;">
             <div class="stat-card">
-                <h3>Total Users</h3>
+                <h3>Total Nodes</h3>
                 <p id="total-users">--</p>
             </div>
             <div class="stat-card">
-                <h3>Total Generations</h3>
+                <h3>Neural Outputs</h3>
                 <p id="total-gens">--</p>
             </div>
             <div class="stat-card">
-                <h3>Active Today</h3>
+                <h3>Active Streams</h3>
                 <p id="active-today">--</p>
             </div>
         </div>
 
-        <div class="stat-card" style="margin-bottom: 2rem;">
-            <h2 style="font-size: 1.125rem; margin-top: 0; margin-bottom: 1.5rem;">User Growth (Last 7 Days)</h2>
-            <div style="position: relative; height: 300px;">
+        <div class="stat-card" style="margin-bottom: 3rem; background: rgba(0,0,0,0.2);">
+            <h2 style="font-size: 1.25rem; margin-bottom: 2rem;">User Propagation (Last 7 Days)</h2>
+            <div style="position: relative; height: 350px;">
                 <canvas id="signupChart"></canvas>
             </div>
         </div>
 
         <div class="table-container">
-            <h2 style="padding: 1.5rem; margin: 0; font-size: 1.125rem;">Recent Activity</h2>
+            <h2 style="padding: 1.5rem 2rem; margin: 0; font-size: 1.25rem; border-bottom: 1px solid var(--border);">Neural Activity Log</h2>
             <table id="activity-table">
                 <thead>
                     <tr>
-                        <th>User</th>
-                        <th>Agent</th>
-                        <th>Prompt Snippet</th>
-                        <th>Date</th>
+                        <th>Operator</th>
+                        <th>Agent Module</th>
+                        <th>Signal Snippet</th>
+                        <th>Timestamp</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td colspan="4" style="text-align: center; padding: 2rem;">Loading activity...</td></tr>
+                    <tr><td colspan="4" style="text-align: center; padding: 4rem; color: #64748b;">Awaiting incoming data...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -96,4 +111,3 @@
     <script src="/admin/js/admin.js"></script>
 </body>
 </html>
-

@@ -5,11 +5,14 @@ const sb = supabase.createClient(config.url, config.anonKey);
 
 const overlay = document.getElementById('login-overlay');
 const authStatus = document.getElementById('auth-status');
-const loginBtn = document.getElementById('login-btn');
-const adminLoginForm = document.getElementById('admin-login-form');
+const authForm = document.getElementById('auth-form');
+const authSwitchLink = document.getElementById('auth-switch-link');
+const portalTitle = document.getElementById('portal-title');
+const authSubmitBtn = document.getElementById('auth-submit-btn');
 const sidebar = document.getElementById('sidebar');
 const menuToggle = document.getElementById('menu-toggle');
 
+let authMode = 'login'; // 'login' or 'signup'
 let growthChart = null;
 
 async function checkAdmin() {
@@ -17,8 +20,7 @@ async function checkAdmin() {
         const { data: { session }, error } = await sb.auth.getSession();
         
         if (error || !session) {
-            showLogin();
-            return;
+            return; // Stay on portal
         }
 
         const isAdmin = session.user.app_metadata?.is_admin;
@@ -27,74 +29,92 @@ async function checkAdmin() {
             overlay.style.display = 'none';
             initDashboard();
         } else {
-            authStatus.innerText = "Access Denied: You do not have administrator privileges.";
+            authStatus.innerText = "ACCESS DENIED: Insufficient Privileges.";
             authStatus.style.color = "#ef4444";
-            showLogin(true); // Show "Switch Account"
+            portalTitle.innerText = "Secure Entry Required";
+            authSubmitBtn.innerText = "Switch Credentials";
+            
+            // Allow logging out to try another account
+            authForm.onsubmit = async (e) => {
+                e.preventDefault();
+                await sb.auth.signOut();
+                window.location.reload();
+            };
         }
     } catch (err) {
-        authStatus.innerText = "Error verifying admin status.";
         console.error(err);
     }
 }
 
-function showLogin(isSwitch = false) {
-    adminLoginForm.style.display = 'block';
-    if (isSwitch) {
-        adminLoginForm.onsubmit = async (e) => {
-            e.preventDefault();
-            await sb.auth.signOut();
-            handleAdminLogin();
-        };
-    } else {
-        adminLoginForm.onsubmit = handleAdminLogin;
-    }
-}
-
-async function handleAdminLogin(e) {
-    if (e) e.preventDefault();
-    const email = document.getElementById('admin-email').value;
-    const password = document.getElementById('admin-password').value;
-    const submitBtn = adminLoginForm.querySelector('button');
+// Auth UI Switcher
+authSwitchLink.onclick = (e) => {
+    e.preventDefault();
+    authMode = authMode === 'login' ? 'signup' : 'login';
     
-    submitBtn.disabled = true;
-    submitBtn.innerText = 'Verifying...';
+    if (authMode === 'signup') {
+        portalTitle.innerText = "Create Identity";
+        authStatus.innerText = "Enter details to register for access.";
+        authSubmitBtn.innerText = "Request Account";
+        authSwitchLink.innerText = "Existing Operator?";
+        document.getElementById('switch-text').innerText = "Already have an account?";
+    } else {
+        portalTitle.innerText = "Nexus Portal";
+        authStatus.innerText = "Authorized access only.";
+        authSubmitBtn.innerText = "Initialize Link";
+        authSwitchLink.innerText = "Request Access";
+        document.getElementById('switch-text').innerText = "Don't have an admin account?";
+    }
+};
+
+authForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('auth-email').value;
+    const password = document.getElementById('auth-password').value;
+    
+    authSubmitBtn.disabled = true;
+    authSubmitBtn.innerText = authMode === 'login' ? 'Verifying...' : 'Processing...';
     
     try {
-        const { data, error } = await sb.auth.signInWithPassword({ email, password });
-        
-        if (error) throw error;
-        
-        // After login, re-check admin status
-        const isAdmin = data.user.app_metadata?.is_admin;
-        if (isAdmin) {
-            window.location.reload();
+        let result;
+        if (authMode === 'login') {
+            result = await sb.auth.signInWithPassword({ email, password });
         } else {
-            authStatus.innerText = "Access Denied: This account is not an administrator.";
-            authStatus.style.color = "#ef4444";
-            submitBtn.disabled = false;
-            submitBtn.innerText = 'Sign In as Admin';
+            result = await sb.auth.signUp({ email, password });
+            if (!result.error) {
+                authStatus.innerText = "Registration Initialized. Please sign in.";
+                authStatus.style.color = "#4af0c8";
+                authSwitchLink.click(); // Switch back to login
+                authSubmitBtn.disabled = false;
+                return;
+            }
         }
+        
+        if (result.error) throw result.error;
+        
+        // After successful auth, the page will reload or checkAdmin will find the session
+        window.location.reload();
+        
     } catch (err) {
-        authStatus.innerText = "Login Failed: " + err.message;
+        authStatus.innerText = "ERROR: " + err.message;
         authStatus.style.color = "#ef4444";
-        submitBtn.disabled = false;
-        submitBtn.innerText = 'Sign In as Admin';
+        authSubmitBtn.disabled = false;
+        authSubmitBtn.innerText = authMode === 'login' ? 'Initialize Link' : 'Request Account';
     }
-}
+};
 
 function initDashboard() {
     loadDashboard();
     
-    // Setup listeners
     document.getElementById('refresh-btn').onclick = loadDashboard;
     
-    menuToggle.onclick = () => {
-        sidebar.classList.toggle('open');
-    };
+    if (menuToggle) {
+        menuToggle.onclick = () => {
+            sidebar.classList.toggle('open');
+        };
+    }
 
-    // Close sidebar when clicking outside on mobile
     document.addEventListener('click', (e) => {
-        if (window.innerWidth <= 768 && 
+        if (window.innerWidth <= 1024 && 
             !sidebar.contains(e.target) && 
             e.target !== menuToggle) {
             sidebar.classList.remove('open');
@@ -105,10 +125,9 @@ function initDashboard() {
 async function loadDashboard() {
     const refreshBtn = document.getElementById('refresh-btn');
     refreshBtn.disabled = true;
-    refreshBtn.innerText = 'Refreshing...';
+    refreshBtn.innerText = 'Syncing...';
 
     try {
-        // 1. Fetch Basic Stats
         const [usersRes, gensRes, activeRes] = await Promise.all([
             sb.from('profiles').select('*', { count: 'exact', head: true }),
             sb.from('generations').select('*', { count: 'exact', head: true }),
@@ -121,50 +140,38 @@ async function loadDashboard() {
         document.getElementById('total-gens').innerText = gensRes.count || 0;
         document.getElementById('active-today').innerText = activeRes.count || 0;
 
-        // 2. Fetch Growth Data (Last 7 days)
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        
-        const { data: growthData } = await sb
-            .from('profiles')
-            .select('created_at')
-            .gte('created_at', sevenDaysAgo.toISOString());
+        const { data: growthData } = await sb.from('profiles').select('created_at').gte('created_at', sevenDaysAgo.toISOString());
 
-        if (growthData) {
-            renderGrowthChart(growthData);
-        }
+        if (growthData) renderGrowthChart(growthData);
 
-        // 3. Fetch Recent Activity
-        const { data: recentGens, error: activityError } = await sb
+        const { data: recentGens } = await sb
             .from('generations')
             .select('created_at, agent_id, prompt, profiles(email)')
             .order('created_at', { ascending: false })
             .limit(10);
 
         const tbody = document.querySelector('#activity-table tbody');
-        if (activityError) {
-            tbody.innerHTML = `<tr><td colspan="4" style="color: red; text-align: center;">Error loading activity: ${activityError.message}</td></tr>`;
-        } else {
-            tbody.innerHTML = recentGens?.map(gen => `
-                <tr>
-                    <td><span style="font-weight: 600;">${gen.profiles?.email || 'Unknown'}</span></td>
-                    <td><code style="background: #f1f5f9; padding: 0.2rem 0.4rem; border-radius: 4px;">${gen.agent_id}</code></td>
-                    <td title="${gen.prompt.replace(/"/g, '&quot;')}">${gen.prompt.substring(0, 50)}${gen.prompt.length > 50 ? '...' : ''}</td>
-                    <td style="color: #64748b; font-size: 0.875rem;">${new Date(gen.created_at).toLocaleString()}</td>
-                </tr>
-            `).join('') || '<tr><td colspan="4" style="text-align: center; padding: 2rem;">No recent activity</td></tr>';
-        }
+        tbody.innerHTML = recentGens?.map(gen => `
+            <tr>
+                <td><span style="font-weight: 600; color: var(--primary);">${gen.profiles?.email || 'Unknown'}</span></td>
+                <td><code style="background: rgba(37,99,235,0.1); color: #fff; padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid rgba(37,99,235,0.2); font-family: 'DM Mono';">${gen.agent_id}</code></td>
+                <td>${gen.prompt.substring(0, 60)}...</td>
+                <td style="color: #64748b; font-size: 0.8rem;">${new Date(gen.created_at).toLocaleString()}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="4" style="text-align: center; padding: 4rem;">Signal Lost: No recent activity.</td></tr>';
+        
     } catch (err) {
-        console.error("Dashboard load error:", err);
+        console.error(err);
     } finally {
         refreshBtn.disabled = false;
-        refreshBtn.innerText = 'Refresh Data';
+        refreshBtn.innerText = 'Update Stream';
     }
 }
 
 function renderGrowthChart(data) {
     const ctx = document.getElementById('signupChart').getContext('2d');
-    
     const counts = {};
     data.forEach(row => {
         const date = new Date(row.created_at).toLocaleDateString();
@@ -181,42 +188,39 @@ function renderGrowthChart(data) {
         values.push(counts[dateLabel] || 0);
     }
 
-    if (growthChart) {
-        growthChart.destroy();
-    }
+    if (growthChart) growthChart.destroy();
 
     growthChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
             datasets: [{
-                label: 'New Signups',
+                label: 'Signups',
                 data: values,
                 borderColor: '#2563eb',
-                borderWidth: 3,
+                borderWidth: 4,
+                pointRadius: 6,
+                pointBackgroundColor: '#2563eb',
                 tension: 0.4,
                 fill: true,
-                backgroundColor: 'rgba(37, 99, 235, 0.05)',
-                pointBackgroundColor: '#2563eb',
-                pointRadius: 4
+                backgroundColor: (context) => {
+                    const chart = context.chart;
+                    const {ctx, chartArea} = chart;
+                    if (!chartArea) return null;
+                    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                    gradient.addColorStop(0, 'transparent');
+                    gradient.addColorStop(1, 'rgba(37, 99, 235, 0.2)');
+                    return gradient;
+                }
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            },
+            plugins: { legend: { display: false } },
             scales: {
-                y: { 
-                    beginAtZero: true, 
-                    ticks: { stepSize: 1, color: '#64748b' },
-                    grid: { color: '#f1f5f9' }
-                },
-                x: {
-                    ticks: { color: '#64748b' },
-                    grid: { display: false }
-                }
+                y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', stepSize: 1 } },
+                x: { grid: { display: false }, ticks: { color: '#64748b' } }
             }
         }
     });
@@ -225,7 +229,7 @@ function renderGrowthChart(data) {
 document.getElementById('logout-btn').onclick = async (e) => {
     e.preventDefault();
     await sb.auth.signOut();
-    window.location.href = '../index.html';
+    window.location.reload();
 };
 
 checkAdmin();
