@@ -228,53 +228,42 @@ async function handleLogin(e) {
   const pass = document.getElementById('loginPass').value;
 
   if (email && pass) {
-    // If Supabase is ready, use it exclusively
-    if (window.supabaseState?.ready) {
-      try {
-        await supabaseLogin(email, pass, state.authMode);
-        
-        if (state.authMode === 'signup') {
-          showToast('✓ Account created! Please sign in.');
-          openLoginModal('signin');
-        } else {
-          closeLoginModal();
-          showToast(`Welcome back, ${state.user.name}!`);
-        }
-      } catch (err) {
-        console.error("Login Error:", err);
-        // Explicit error messages for common Supabase auth failures
-        let msg = err.message || "Invalid credentials";
-        if (msg.includes("invalid_credentials") || msg.toLowerCase().includes("invalid login")) {
-          msg = "❌ Invalid email or password. Please try again.";
-        } else if (msg.includes("User already registered")) {
-          msg = "❌ This email is already registered. Try signing in.";
-        }
-        showToast(msg);
+    if (!window.supabaseState?.ready) {
+      showToast('❌ Authentication is not available. Please refresh or contact support.');
+      return;
+    }
+
+    try {
+      if (state.authMode === 'signup') {
+        // Strict Signup Flow
+        await supabaseLogin(email, pass, 'signup');
+        showToast('✅ Account created successfully! Please sign in with your credentials.');
+        openLoginModal('signin'); // Redirect to login
+      } else {
+        // Strict Login Flow
+        await supabaseLogin(email, pass, 'signin');
+        closeLoginModal();
+        showToast(`✅ Welcome back, ${state.user.name}!`);
       }
-      return;
-    }
+    } catch (err) {
+      console.error("Auth Error:", err);
+      let msg = err.message || "An error occurred during authentication.";
 
-    // If Supabase is configured but NOT ready, don't fallback to demo
-    if (typeof isSupabaseConfigured === 'function' && isSupabaseConfigured()) {
-      showToast('⚠ Supabase connection error. Please refresh the page.');
-      console.warn("Supabase is configured but state.ready is false.");
-      return;
-    }
+      // Production-ready error mapping
+      if (msg.includes("invalid_credentials") || msg.toLowerCase().includes("invalid login")) {
+        msg = "❌ Invalid email or password. Please try again.";
+      } else if (msg.includes("User already registered") || msg.includes("already exists")) {
+        msg = "❌ This email is already registered. Please sign in instead.";
+      } else if (msg.includes("signup_disabled")) {
+        msg = "❌ New signups are currently disabled.";
+      } else if (msg.includes("Email not confirmed")) {
+        msg = "❌ Please confirm your email address before signing in.";
+      }
 
-    // Demo/Local Mode (Only if NO Supabase config is found)
-    if (state.authMode === 'signup') {
-      showToast('✓ Account created! (Demo Mode) Please sign in.');
-      openLoginModal('signin');
-    } else {
-      state.user = { email, name: email.split('@')[0] };
-      localStorage.setItem('nexuz_user', JSON.stringify(state.user));
-      closeLoginModal();
-      updateNavForAuth();
-      showToast(`Welcome back, ${state.user.name}! (Demo Mode) ✓`);
+      showToast(msg);
     }
   }
 }
-
 async function handleOAuth(provider) {
   if (!window.supabaseState?.ready) {
     showToast('Social sign-in needs Supabase configuration');
