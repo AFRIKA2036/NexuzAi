@@ -18,7 +18,7 @@ try {
   let content = fs.readFileSync(configPath, 'utf8');
 
   // Define required variables for the app to function
-  const required = ['SUPABASE_URL', 'SUPABASE_ANON_KEY'];
+  const required = ['SUPABASE_ANON_KEY'];
   const missing = required.filter(key => !process.env[key]);
 
   if (missing.length > 0) {
