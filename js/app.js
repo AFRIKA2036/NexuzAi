@@ -655,8 +655,57 @@ function formatAIResponse(text) {
   return formatted;
 }
 
+// ─── CACHING UTILITY ──────────────────────────
+const ResponseCache = {
+  prefix: 'nexuz_cache_',
+  ttl: 60 * 60 * 1000, // 1 hour
+
+  async hash(string) {
+    const msgUint8 = new TextEncoder().encode(string);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  async get(agentId, systemPrompt, userPrompt) {
+    const key = await this.hash(`${agentId}:${systemPrompt}:${userPrompt}`);
+    const cached = localStorage.getItem(this.prefix + key);
+    if (!cached) return null;
+    
+    try {
+      const { value, expiry } = JSON.parse(cached);
+      if (Date.now() > expiry) {
+        localStorage.removeItem(this.prefix + key);
+        return null;
+      }
+      return value;
+    } catch (e) { return null; }
+  },
+
+  async set(agentId, systemPrompt, userPrompt, value) {
+    const key = await this.hash(`${agentId}:${systemPrompt}:${userPrompt}`);
+    const data = JSON.stringify({
+      value,
+      expiry: Date.now() + this.ttl
+    });
+    try {
+      localStorage.setItem(this.prefix + key, data);
+    } catch (e) {
+      if (e.name === 'QuotaExceededError') localStorage.clear();
+    }
+  }
+};
+
 // ─── API CALL ──────────────────────────────────
 async function callAIAPI(systemPrompt, userPrompt, onChunk) {
+  // 1. Application Cache Check
+  const cachedResponse = await ResponseCache.get(state.currentAgent, systemPrompt, userPrompt);
+  if (cachedResponse) {
+    console.log('🚀 Serving from application cache');
+    if (onChunk) onChunk(cachedResponse);
+    return cachedResponse;
+  }
+
   const accessToken = await getSupabaseAccessToken();
   const isLocalProxy = isLocalProxyUrl(CONFIG.proxyUrl);
   const headers = {
@@ -704,6 +753,10 @@ async function callAIAPI(systemPrompt, userPrompt, onChunk) {
     if (data.error) throw new Error(data.error.message || data.error || 'AI provider returned an error');
     const content = data.choices?.[0]?.message?.content || data.choices?.[0]?.text || data.output || '';
     if (!content.trim()) throw new Error('AI provider returned an empty response');
+    
+    // Save to Cache
+    await ResponseCache.set(state.currentAgent, systemPrompt, userPrompt, content);
+    
     if (onChunk) onChunk(content);
     return content;
   }
@@ -748,6 +801,9 @@ async function callAIAPI(systemPrompt, userPrompt, onChunk) {
     }
   }
   if (!fullContent.trim()) throw new Error('AI provider returned an empty response');
+
+  // Save to Cache
+  await ResponseCache.set(state.currentAgent, systemPrompt, userPrompt, fullContent);
   return fullContent;
 }
 
