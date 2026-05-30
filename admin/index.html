@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexuzAI Admin Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div id="login-overlay">
+        <div style="text-align: center;">
+            <h2>Admin Verification</h2>
+            <p id="auth-status">Checking credentials...</p>
+            <button id="login-btn" style="display:none; padding: 10px 20px;">Login with Admin Account</button>
+        </div>
+    </div>
+
+    <nav class="sidebar">
+        <h2>NexuzAI Admin</h2>
+        <ul style="list-style: none; padding: 0; margin-top: 2rem;">
+            <li><a href="#" style="color: white; text-decoration: none;">Dashboard</a></li>
+            <li><a href="#" id="logout-btn" style="color: #fca5a5; text-decoration: none;">Logout</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <h1>System Overview</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Users</h3>
+                <p id="total-users">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Total Generations</h3>
+                <p id="total-gens">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Active Today</h3>
+                <p id="active-today">0</p>
+            </div>
+        </div>
+
+        <div class="stat-card" style="margin-bottom: 2rem;">
+            <h2>User Growth (Last 7 Days)</h2>
+            <canvas id="signupChart" height="100"></canvas>
+        </div>
+
+        <div class="table-container">
+            <h2 style="padding: 1rem;">Recent Activity</h2>
+            <table id="activity-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Agent</th>
+                        <th>Prompt Snippet</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Data will be injected here -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Inject public config first -->
+    <script src="../js/supabase-config.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>
