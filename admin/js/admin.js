@@ -8,7 +8,11 @@ const authStatus = document.getElementById('auth-status');
 const authForm = document.getElementById('auth-form');
 const portalTitle = document.getElementById('portal-title');
 const authSubmitBtn = document.getElementById('auth-submit-btn');
+const authTimer = document.getElementById('auth-timer');
+const timerSeconds = document.getElementById('timer-seconds');
 const sidebar = document.getElementById('sidebar');
+
+let cooldownInterval = null;
 
 async function checkAdmin() {
     try {
@@ -38,6 +42,26 @@ async function checkAdmin() {
     }
 }
 
+function startCooldown(seconds) {
+    if (cooldownInterval) clearInterval(cooldownInterval);
+    authTimer.style.display = 'block';
+    authSubmitBtn.disabled = true;
+    let remaining = seconds;
+    
+    timerSeconds.innerText = remaining;
+    
+    cooldownInterval = setInterval(() => {
+        remaining--;
+        timerSeconds.innerText = remaining;
+        if (remaining <= 0) {
+            clearInterval(cooldownInterval);
+            authTimer.style.display = 'none';
+            authSubmitBtn.disabled = false;
+            authSubmitBtn.innerText = "Resend Access Link";
+        }
+    }, 1000);
+}
+
 authForm.onsubmit = async (e) => {
     e.preventDefault();
     const email = document.getElementById('auth-email').value;
@@ -46,19 +70,29 @@ authForm.onsubmit = async (e) => {
     authSubmitBtn.innerText = 'Transmitting Link...';
     
     try {
-        // Use Magic Link (OTP) for passwordless login
         const { error } = await sb.auth.signInWithOtp({
             email: email,
             options: {
-                emailRedirectTo: window.location.href // Redirect back to this admin page
+                emailRedirectTo: window.location.href
             }
         });
         
-        if (error) throw error;
+        if (error) {
+            // Check for rate limit error
+            if (error.message.includes('seconds')) {
+                const seconds = parseInt(error.message.match(/\d+/)[0]);
+                authStatus.innerText = "Security cooldown active.";
+                authStatus.style.color = "#f0a84a";
+                startCooldown(seconds);
+                return;
+            }
+            throw error;
+        }
         
-        authStatus.innerText = "Link Transmitted! Check your email to enter the Nexus.";
+        authStatus.innerText = "Link Transmitted! Check your email to enter the Nexuz.";
         authStatus.style.color = "#4af0c8";
         authSubmitBtn.innerText = "Link Sent";
+        startCooldown(60); // Standard 60s cooldown for next try
         
     } catch (err) {
         authStatus.innerText = "ERROR: " + err.message;

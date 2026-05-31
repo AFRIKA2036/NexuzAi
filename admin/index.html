@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus Portal — NexuzAI Admin</title>
+    <title>Nexuz Portal — NexuzAI Admin</title>
     <link rel="stylesheet" href="/admin/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -15,7 +15,7 @@
     <div id="login-overlay">
         <div class="portal-card">
             <span class="portal-logo">⬡</span>
-            <h2 id="portal-title">Nexus Portal</h2>
+            <h2 id="portal-title">Nexuz Portal</h2>
             <p id="auth-status" style="color: #94a3b8; margin-bottom: 2rem;">Admin Entry: Enter your authorized email.</p>
             
             <!-- Email Only Auth Form -->
@@ -26,6 +26,10 @@
                 </div>
                 <button type="submit" class="btn-nexus" id="auth-submit-btn">Send Access Link</button>
             </form>
+
+            <div id="auth-timer" style="display: none; margin-top: 1rem; font-size: 0.85rem; color: #f0a84a; font-family: 'DM Mono', monospace;">
+                Security Cooldown: <span id="timer-seconds">60</span>s
+            </div>
 
             <div class="portal-switch" style="opacity: 0.5;">
                 <span id="switch-text">Authorized Personnel Only</span>
