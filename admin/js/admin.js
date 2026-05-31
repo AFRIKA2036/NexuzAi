@@ -11,8 +11,10 @@ const authSubmitBtn = document.getElementById('auth-submit-btn');
 const authTimer = document.getElementById('auth-timer');
 const timerSeconds = document.getElementById('timer-seconds');
 const sidebar = document.getElementById('sidebar');
+const menuToggle = document.getElementById('menu-toggle');
 
 let cooldownInterval = null;
+let growthChart = null;
 
 async function checkAdmin() {
     try {
@@ -69,11 +71,14 @@ authForm.onsubmit = async (e) => {
     authSubmitBtn.disabled = true;
     authSubmitBtn.innerText = 'Transmitting Link...';
     
+    // Determine the exact redirect URL
+    const redirectTo = window.location.origin + "/admin/index.html";
+    
     try {
         const { error } = await sb.auth.signInWithOtp({
             email: email,
             options: {
-                emailRedirectTo: window.location.href
+                emailRedirectTo: redirectTo
             }
         });
         
@@ -92,7 +97,7 @@ authForm.onsubmit = async (e) => {
         authStatus.innerText = "Link Transmitted! Check your email to enter the Nexuz.";
         authStatus.style.color = "#4af0c8";
         authSubmitBtn.innerText = "Link Sent";
-        startCooldown(60); // Standard 60s cooldown for next try
+        startCooldown(60); 
         
     } catch (err) {
         authStatus.innerText = "ERROR: " + err.message;

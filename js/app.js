@@ -199,10 +199,26 @@ function updateNavForAuth() {
   const btn = document.getElementById('loginBtn');
   const teamLink = document.getElementById('teamHubLink');
   const getStartedBtn = document.getElementById('getStartedBtn');
+  const navLinks = document.querySelector('.nav-links');
   
+  // Remove existing admin link if any
+  const oldAdminLink = document.getElementById('adminDashboardLink');
+  if (oldAdminLink) oldAdminLink.remove();
+
   if (state.user) {
     btn.textContent = `Logout (${state.user.email.split('@')[0]})`;
     if (getStartedBtn) getStartedBtn.style.display = 'none';
+
+    // Check if user is an admin (from session metadata)
+    const isAdmin = window.supabaseState?.session?.user?.app_metadata?.is_admin;
+    if (isAdmin) {
+      const adminLink = document.createElement('a');
+      adminLink.id = 'adminDashboardLink';
+      adminLink.href = '/admin/index.html';
+      adminLink.innerHTML = 'Admin <span class="nav-badge" style="background:var(--accent); color:var(--bg1)">Portal</span>';
+      adminLink.style.color = 'var(--accent)';
+      navLinks.insertBefore(adminLink, btn);
+    }
   } else {
     btn.textContent = 'Login';
     if (getStartedBtn) getStartedBtn.style.display = 'inline-block';
