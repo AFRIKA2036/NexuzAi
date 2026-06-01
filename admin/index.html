@@ -54,6 +54,7 @@
         <ul>
             <li><a href="#dashboard" class="active">Dashboard</a></li>
             <li><a href="#users">Users</a></li>
+            <li><a href="#payments">Payments</a></li>
             <li><a href="#usage">Usage</a></li>
             <li style="margin-top: auto; padding-top: 2rem;">
                 <a href="#" id="logout-btn" style="color: #fca5a5;">System Logout</a>
@@ -77,30 +78,47 @@
                 <p id="total-users">--</p>
             </div>
             <div class="stat-card">
-                <h3>Neural Outputs</h3>
-                <p id="total-gens">--</p>
-            </div>
-            <div class="stat-card">
-                <h3>Active Streams</h3>
-                <p id="active-today">--</p>
-            </div>
-            <div class="stat-card">
                 <h3>Paid Accounts</h3>
                 <p id="paid-users">--</p>
             </div>
+            <div class="stat-card">
+                <h3>Total Revenue</h3>
+                <p id="payment-revenue">--</p>
+            </div>
+            <div class="stat-card">
+                <h3>Revenue (7D)</h3>
+                <p id="revenue-7d">--</p>
+            </div>
+            <div class="stat-card">
+                <h3>Conversion</h3>
+                <p id="conversion-rate">--</p>
+            </div>
         </div>
 
-        <div class="stat-card chart-card">
-            <div class="panel-heading">
-                <h2>User Propagation</h2>
-                <div class="plan-breakdown">
-                    <span>Free <strong id="plan-free">--</strong></span>
-                    <span>Pro <strong id="plan-pro">--</strong></span>
-                    <span>Team <strong id="plan-team">--</strong></span>
+        <div class="chart-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 2rem; margin-bottom: 3rem;">
+            <div class="stat-card chart-card" style="margin-bottom: 0;">
+                <div class="panel-heading">
+                    <h2>User Propagation</h2>
+                    <div class="plan-breakdown">
+                        <span>Free <strong id="plan-free">--</strong></span>
+                        <span>Pro <strong id="plan-pro">--</strong></span>
+                        <span>Team <strong id="plan-team">--</strong></span>
+                    </div>
+                </div>
+                <div style="position: relative; height: 300px;">
+                    <canvas id="signupChart"></canvas>
                 </div>
             </div>
-            <div style="position: relative; height: 350px;">
-                <canvas id="signupChart"></canvas>
+            <div class="stat-card chart-card" style="margin-bottom: 0;">
+                <div class="panel-heading">
+                    <h2>Revenue Flux</h2>
+                    <div class="plan-breakdown">
+                        <span>Daily Intake <strong id="revenue-today">--</strong></span>
+                    </div>
+                </div>
+                <div style="position: relative; height: 300px;">
+                    <canvas id="revenueChart"></canvas>
+                </div>
             </div>
         </div>
 
@@ -134,6 +152,40 @@
                 </thead>
                 <tbody>
                     <tr><td colspan="4" class="empty-state">Awaiting user data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="table-container" id="payments">
+            <div class="table-header">
+                <div>
+                    <h2>Payments</h2>
+                    <p id="payments-sync">Waiting for payment sync.</p>
+                </div>
+                <button id="payments-refresh-btn" class="btn-secondary compact-btn">Refresh Payments</button>
+            </div>
+            <div class="payment-metrics">
+                <span>Successful <strong id="payments-successful">--</strong></span>
+                <span>Abandoned <strong id="payments-abandoned">--</strong></span>
+                <span>Failed <strong id="payments-failed">--</strong></span>
+                <span>Pending <strong id="payments-pending">--</strong></span>
+                <span>Paystack Rows <strong id="payments-paystack">--</strong></span>
+                <span>Supabase Only <strong id="payments-supabase">--</strong></span>
+            </div>
+            <table id="payments-table">
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Plan</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Reference</th>
+                        <th>Source</th>
+                        <th>Paid</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="7" class="empty-state">Awaiting payment data...</td></tr>
                 </tbody>
             </table>
         </div>

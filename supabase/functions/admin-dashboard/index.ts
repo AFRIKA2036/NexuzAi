@@ -1,10 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
+  calculateRevenueTrend,
   countPlans,
+  formatPaystackTransaction,
+  formatSupabasePaymentProfile,
   getCorsHeaders,
   isAdminUser,
   isValidPlan,
   json,
+  mergePaymentRecords,
+  paymentMetrics,
   snippet,
   todayIsoDate,
 } from "./logic.ts";
@@ -70,6 +75,11 @@ export async function handleAdminDashboard(req: Request) {
         validation.plan,
       );
       return json({ ...result, requestId }, 200, cors.headers);
+    }
+
+    if (action === "payments") {
+      const payments = await getPaymentData(admin);
+      return json({ payments, requestId }, 200, cors.headers);
     }
 
     if (action !== "summary") {
@@ -160,6 +170,8 @@ async function getDashboardData(admin: SupabaseClient) {
     (profileRows.data || []) as Array<{ plan?: string }>,
   );
 
+  const payments = await getPaymentData(admin);
+
   return {
     generatedAt: new Date().toISOString(),
     metrics: {
@@ -193,7 +205,111 @@ async function getDashboardData(admin: SupabaseClient) {
         requestCount: Number(row.request_count || 0),
         updatedAt: row.updated_at,
       })),
+    payments,
   };
+}
+
+async function getPaymentData(admin: SupabaseClient) {
+  const [profileRows, paystackResult] = await Promise.all([
+    admin.from("profiles")
+      .select(
+        "id, email, full_name, plan, paystack_customer_code, paystack_last_reference, created_at, updated_at",
+      )
+      .or("paystack_last_reference.not.is.null,paystack_customer_code.not.is.null")
+      .order("updated_at", { ascending: false })
+      .limit(1000),
+    fetchPaystackTransactions(),
+  ]);
+
+  if (profileRows.error) {
+    throw new Error(profileRows.error.message || "Payment profile lookup failed");
+  }
+
+  const supabasePayments = ((profileRows.data || []) as Array<
+    Record<string, unknown>
+  >)
+    .filter((row) => row.paystack_last_reference || row.paystack_customer_code)
+    .map(formatSupabasePaymentProfile);
+
+  const paymentRows = mergePaymentRecords(
+    paystackResult.transactions,
+    supabasePayments,
+  );
+  const metrics = paymentMetrics(paymentRows);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    providerConfigured: paystackResult.configured,
+    providerError: paystackResult.error,
+    totalRows: paymentRows.length,
+    successfulCount: metrics.successfulCount,
+    failedCount: metrics.failedCount,
+    abandonedCount: metrics.abandonedCount,
+    pendingCount: metrics.pendingCount,
+    paystackCount: metrics.paystackCount,
+    supabaseOnlyCount: metrics.supabaseOnlyCount,
+    totalSuccessfulAmount: Number(metrics.totalSuccessfulAmount.toFixed(2)),
+    revenueTrend: calculateRevenueTrend(paymentRows),
+    currency: metrics.currencies.size === 1
+      ? Array.from(metrics.currencies)[0]
+      : metrics.currencies.size > 1
+      ? "mixed"
+      : "",
+    rows: paymentRows,
+  };
+}
+
+async function fetchPaystackTransactions() {
+  const paystackSecret = getPaystackSecret();
+  if (!paystackSecret) {
+    return { configured: false, transactions: [], error: "" };
+  }
+
+  const transactions = [];
+  const perPage = 100;
+  const requestedPages = Number(Deno.env.get("PAYSTACK_ADMIN_MAX_PAGES") || 10);
+  const maxPages = Number.isFinite(requestedPages) && requestedPages > 0
+    ? Math.min(requestedPages, 50)
+    : 10;
+
+  try {
+    for (let page = 1; page <= maxPages; page++) {
+      const url = new URL("https://api.paystack.co/transaction");
+      url.searchParams.set("perPage", String(perPage));
+      url.searchParams.set("page", String(page));
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${paystackSecret}`,
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.status === false) {
+        return {
+          configured: true,
+          transactions,
+          error: data.message || `Paystack returned ${response.status}`,
+        };
+      }
+
+      const rows = Array.isArray(data.data) ? data.data : [];
+      transactions.push(...rows.map(formatPaystackTransaction));
+
+      const pageCount = Number(data.meta?.pageCount || 0);
+      if (pageCount && page >= pageCount) break;
+      if (!pageCount && rows.length < perPage) break;
+    }
+
+    return { configured: true, transactions, error: "" };
+  } catch (err) {
+    return {
+      configured: true,
+      transactions,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 
 function buildSignupTrend(rows: Array<{ created_at?: string }>) {
@@ -296,6 +412,13 @@ function requiredEnv(name: string) {
   const value = Deno.env.get(name);
   if (!value) throw new Error(`${name} is not configured`);
   return value;
+}
+
+function getPaystackSecret() {
+  return Deno.env.get("PAYSTACK_SECRET_KEY") ||
+    Deno.env.get("PAYSTACK_SECRET") ||
+    Deno.env.get("Paystack_secret_key") ||
+    "";
 }
 
 if (import.meta.main) {

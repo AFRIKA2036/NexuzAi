@@ -1428,8 +1428,8 @@ function selectPlan(planId) {
 
 function openPaymentModal(planId) {
   const plans = {
-    pro: { name: 'Pro Plan', price: 'GH₵ 150/month', amount: 150 },
-    team: { name: 'Team Plan', price: 'GH₵ 450/month', amount: 450 }
+    pro: { name: 'Pro Plan', price: 'GH₵ 105.86/month', amount: 105.86 },
+    team: { name: 'Team Plan', price: 'GH₵ 341.09/month', amount: 341.09 }
   };
 
   state.currentPlanSelection = planId;

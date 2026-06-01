@@ -178,7 +178,7 @@ and never receives the service-role key.
 Required secret:
 
 ```bash
-supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key --project-ref YOUR_PROJECT_REF
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key PAYSTACK_SECRET_KEY=sk_live_... --project-ref YOUR_PROJECT_REF
 ```
 
 Deploy the function:
@@ -198,3 +198,10 @@ where email = 'admin@nexuzai.io';
 The admin function also accepts `app_metadata.role = "admin"` or an
 `app_metadata.roles` array containing `"admin"`. After changing metadata, sign
 out and sign in again so the browser receives a fresh JWT.
+
+The Payments section combines Paystack transactions with Supabase `profiles`
+payment fields (`paystack_customer_code` and `paystack_last_reference`). If
+`PAYSTACK_SECRET_KEY` is not set, the admin dashboard still shows Supabase
+payment references but cannot fetch live Paystack transaction rows. Paystack
+transactions are fetched in pages of 100; set `PAYSTACK_ADMIN_MAX_PAGES` if you
+need more or fewer pages than the default 10.

@@ -11,11 +11,47 @@ const timerSeconds = document.getElementById('timer-seconds');
 const sidebar = document.getElementById('sidebar');
 const menuToggle = document.getElementById('menu-toggle');
 const refreshBtn = document.getElementById('refresh-btn');
+const paymentsRefreshBtn = document.getElementById('payments-refresh-btn');
 const usersTable = document.querySelector('#users-table tbody');
+const paymentsTable = document.querySelector('#payments-table tbody');
 
 let sb = null;
 let cooldownInterval = null;
 let growthChart = null;
+let revenueChart = null;
+
+function renderRevenueChart(rows) {
+    if (!window.Chart) return;
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+    const labels = rows.map((row) => formatShortDate(row.date));
+    const values = rows.map((row) => Number(row.amount || 0));
+
+    if (revenueChart) revenueChart.destroy();
+
+    revenueChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Revenue',
+                data: values,
+                backgroundColor: 'rgba(74, 240, 200, 0.16)',
+                borderColor: '#4af0c8',
+                borderWidth: 2,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } },
+                x: { grid: { display: false }, ticks: { color: '#64748b' } }
+            }
+        }
+    });
+}
 let dashboardReady = false;
 
 function isConfigured() {
@@ -167,6 +203,7 @@ function initDashboard() {
     dashboardReady = true;
 
     refreshBtn.onclick = loadDashboard;
+    if (paymentsRefreshBtn) paymentsRefreshBtn.onclick = loadPayments;
 
     if (menuToggle) {
         menuToggle.onclick = () => sidebar.classList.toggle('open');
@@ -232,10 +269,23 @@ async function callAdminApi(payload) {
 
 function renderDashboard(data) {
     const metrics = data.metrics || {};
+    const payments = data.payments || {};
+    const revenueTrend = payments.revenueTrend || [];
+
     document.getElementById('total-users').innerText = formatNumber(metrics.totalUsers);
-    document.getElementById('total-gens').innerText = formatNumber(metrics.totalGenerations);
-    document.getElementById('active-today').innerText = formatNumber(metrics.activeToday);
     document.getElementById('paid-users').innerText = formatNumber(metrics.paidUsers);
+    document.getElementById('payment-revenue').innerText = formatCurrency(payments.totalSuccessfulAmount, payments.currency);
+
+    // Advanced Metrics
+    const revenue7d = revenueTrend.slice(-7).reduce((acc, curr) => acc + curr.amount, 0);
+    document.getElementById('revenue-7d').innerText = formatCurrency(revenue7d, payments.currency);
+
+    const totalAttempts = payments.successfulCount + payments.failedCount + payments.abandonedCount;
+    const conversionRate = totalAttempts > 0 ? (payments.successfulCount / totalAttempts * 100).toFixed(1) : '0';
+    document.getElementById('conversion-rate').innerText = `${conversionRate}%`;
+
+    const revenueToday = revenueTrend.length > 0 ? revenueTrend[revenueTrend.length - 1].amount : 0;
+    document.getElementById('revenue-today').innerText = formatCurrency(revenueToday, payments.currency);
 
     const plans = metrics.plans || {};
     document.getElementById('plan-free').innerText = formatNumber(plans.free);
@@ -244,9 +294,11 @@ function renderDashboard(data) {
     document.getElementById('last-sync').innerText = `Last sync: ${formatDateTime(data.generatedAt)}`;
 
     renderGrowthChart(data.signupTrend || []);
+    renderRevenueChart(revenueTrend);
     renderActivity(data.recentGenerations || []);
     renderUsers(data.recentUsers || []);
     renderUsage(data.topUsageToday || []);
+    renderPayments(payments);
 }
 
 function renderActivity(rows) {
@@ -303,6 +355,68 @@ function renderUsage(rows) {
             <td style="color: #64748b;">${formatDateTime(row.updatedAt)}</td>
         </tr>
     `).join('');
+}
+
+async function loadPayments() {
+    if (!paymentsRefreshBtn) return;
+    paymentsRefreshBtn.disabled = true;
+    paymentsRefreshBtn.innerText = 'Refreshing...';
+
+    try {
+        const data = await callAdminApi({ action: 'payments' });
+        renderPayments(data.payments || {});
+    } catch (err) {
+        console.error(err);
+        setAuthStatus(`Payment refresh failed: ${err.message}`, '#ef4444');
+        if (err.status === 401 || err.status === 403) overlay.style.display = 'flex';
+    } finally {
+        paymentsRefreshBtn.disabled = false;
+        paymentsRefreshBtn.innerText = 'Refresh Payments';
+    }
+}
+
+function renderPayments(payments) {
+    if (!paymentsTable) return;
+
+    const rows = payments.rows || [];
+    document.getElementById('payment-revenue').innerText = formatCurrency(payments.totalSuccessfulAmount, payments.currency);
+    document.getElementById('payments-successful').innerText = formatNumber(payments.successfulCount);
+    document.getElementById('payments-abandoned').innerText = formatNumber(payments.abandonedCount);
+    document.getElementById('payments-failed').innerText = formatNumber(payments.failedCount);
+    document.getElementById('payments-pending').innerText = formatNumber(payments.pendingCount);
+    document.getElementById('payments-paystack').innerText = formatNumber(payments.paystackCount);
+    document.getElementById('payments-supabase').innerText = formatNumber(payments.supabaseOnlyCount);
+
+    const syncText = payments.providerConfigured
+        ? payments.providerError
+            ? `Paystack sync warning: ${payments.providerError}. Showing Supabase records plus any fetched Paystack rows.`
+            : `Synced ${formatNumber(payments.totalRows)} payment records from Paystack and Supabase.`
+        : 'Paystack secret is not configured. Showing Supabase payment references only.';
+    document.getElementById('payments-sync').innerText = syncText;
+
+    if (!rows.length) {
+        paymentsTable.innerHTML = '<tr><td colspan="7" class="empty-state">No payment records found.</td></tr>';
+        return;
+    }
+
+    paymentsTable.innerHTML = rows.map((payment) => {
+        const status = String(payment.status || 'unknown');
+        const source = String(payment.source || 'supabase');
+        return `
+            <tr>
+                <td>
+                    <span class="user-name">${escapeHtml(payment.fullName || payment.email || 'Unknown')}</span>
+                    <span class="user-email">${escapeHtml(payment.email || payment.customerCode || '')}</span>
+                </td>
+                <td>${escapeHtml(payment.plan || 'unknown')}</td>
+                <td>${formatCurrency(payment.amount, payment.currency)}</td>
+                <td><span class="status-pill ${escapeHtml(slug(status))}">${escapeHtml(status)}</span></td>
+                <td><code class="reference-code" title="${escapeHtml(payment.reference || '')}">${escapeHtml(payment.reference || '-')}</code></td>
+                <td><span class="source-pill ${escapeHtml(slug(source))}">${escapeHtml(source)}</span></td>
+                <td style="color: #64748b;">${formatDateTime(payment.paidAt || payment.createdAt)}</td>
+            </tr>
+        `;
+    }).join('');
 }
 
 async function updateUserPlan(select) {
@@ -369,6 +483,17 @@ function formatNumber(value) {
     return Number(value || 0).toLocaleString();
 }
 
+function formatCurrency(value, currency) {
+    if (value === null || value === undefined || value === '') return '-';
+    const numeric = Number(value || 0);
+    const code = currency && currency !== 'mixed' ? String(currency) : 'GHS';
+    const formatted = numeric.toLocaleString(undefined, {
+        minimumFractionDigits: Number.isInteger(numeric) ? 0 : 2,
+        maximumFractionDigits: 2
+    });
+    return currency === 'mixed' ? `${formatted} mixed` : `${code} ${formatted}`;
+}
+
 function formatDate(value) {
     if (!value) return '-';
     return new Date(value).toLocaleDateString();
@@ -391,6 +516,10 @@ function escapeHtml(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+function slug(value) {
+    return String(value || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
 }
 
 checkAdmin();
