@@ -121,6 +121,27 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ALLOWED_ORIGINS=http://127.0.0.1:5600
 ```
 
+## Admin Dashboard
+
+The admin dashboard uses Supabase Auth plus the `admin-dashboard` Edge Function
+so service-role access stays server-side.
+
+```bash
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key --project-ref YOUR_PROJECT_REF
+supabase functions deploy admin-dashboard --project-ref YOUR_PROJECT_REF
+```
+
+Give an Auth user admin access from Supabase SQL Editor:
+
+```sql
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"is_admin": true}'::jsonb
+where email = 'admin@nexuzai.io';
+```
+
+Then sign in at `/admin/index.html` with that user's email and password. Magic
+link login is still available as a fallback.
+
 ---
 
 ## 📁 Project Structure

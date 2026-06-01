@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexuz Portal — NexuzAI Admin</title>
+    <title>NexuzAI Admin Dashboard</title>
     <link rel="stylesheet" href="/admin/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -11,66 +11,67 @@
 <body>
     <div class="bg-orb"></div>
 
-    <!-- Auth Portal -->
     <div id="login-overlay">
         <div class="portal-card">
-            <span class="portal-logo">⬡</span>
+            <span class="portal-logo">N</span>
             <h2 id="portal-title">Nexuz Portal</h2>
-            <p id="auth-status" style="color: #94a3b8; margin-bottom: 2rem;">Admin Entry: Enter your authorized email.</p>
-            
-            <!-- Email Only Auth Form -->
+            <p id="auth-status" style="color: #94a3b8; margin-bottom: 2rem;">Admin entry requires an authorized account.</p>
+
             <form id="auth-form">
                 <div class="input-group">
-                    <label>Administrator Email</label>
-                    <input type="email" id="auth-email" required placeholder="admin@nexuzai.io">
+                    <label for="auth-email">Administrator Email</label>
+                    <input type="email" id="auth-email" required autocomplete="username" placeholder="admin@nexuzai.io">
                 </div>
-                <button type="submit" class="btn-nexus" id="auth-submit-btn">Send Access Link</button>
+                <div class="input-group">
+                    <label for="auth-password">Password</label>
+                    <input type="password" id="auth-password" required autocomplete="current-password" placeholder="Account password">
+                </div>
+                <button type="submit" class="btn-nexus" id="auth-submit-btn">Sign In</button>
+                <button type="button" class="btn-secondary" id="magic-link-btn">Email Magic Link</button>
             </form>
 
             <div id="auth-timer" style="display: none; margin-top: 1rem; font-size: 0.85rem; color: #f0a84a; font-family: 'DM Mono', monospace;">
-                Security Cooldown: <span id="timer-seconds">60</span>s
+                Security cooldown: <span id="timer-seconds">60</span>s
             </div>
 
             <div class="portal-switch" style="opacity: 0.5;">
-                <span id="switch-text">Authorized Personnel Only</span>
+                <span id="switch-text">Authorized personnel only</span>
             </div>
 
             <div style="margin-top: 2rem; font-size: 0.8rem;">
-                <a href="/" style="color: #64748b; text-decoration: none; border-bottom: 1px solid #334155;">← Return to Main Site</a>
+                <a href="/" style="color: #64748b; text-decoration: none; border-bottom: 1px solid #334155;">Return to Main Site</a>
             </div>
         </div>
     </div>
 
-    <!-- Mobile Header -->
     <header class="header-mobile">
-        <h2 style="margin: 0; font-size: 1.25rem;">⬡ NexuzAI</h2>
-        <button id="menu-toggle" style="background:none; border:none; color:white; font-size:1.5rem;">☰</button>
+        <h2 style="margin: 0; font-size: 1.25rem;">NexuzAI</h2>
+        <button id="menu-toggle" style="background:none; border:none; color:white; font-size:1rem;" aria-label="Open menu">Menu</button>
     </header>
 
-    <!-- Sidebar -->
     <nav class="sidebar" id="sidebar">
-        <h2>⬡ NexuzAI</h2>
+        <h2>NexuzAI</h2>
         <ul>
-            <li><a href="#" class="active"><span>📊</span> Dashboard</a></li>
-            <li><a href="#"><span>👥</span> Users</a></li>
-            <li><a href="#"><span>⚙️</span> Settings</a></li>
+            <li><a href="#dashboard" class="active">Dashboard</a></li>
+            <li><a href="#users">Users</a></li>
+            <li><a href="#usage">Usage</a></li>
             <li style="margin-top: auto; padding-top: 2rem;">
-                <a href="#" id="logout-btn" style="color: #fca5a5;"><span>⏻</span> System Logout</a>
+                <a href="#" id="logout-btn" style="color: #fca5a5;">System Logout</a>
             </li>
         </ul>
     </nav>
 
-    <!-- Main Dashboard -->
-    <main class="main-content">
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem;">
+    <main class="main-content" id="dashboard">
+        <div class="dashboard-header">
             <div>
                 <p style="color: var(--primary); font-weight: 700; margin-bottom: 0.5rem; letter-spacing: 0.2em; text-transform: uppercase;">Central Command</p>
                 <h1 style="margin: 0; font-size: 2.5rem;">System Intelligence</h1>
+                <p id="last-sync" style="color: #64748b; margin: 0.75rem 0 0;">Waiting for first sync.</p>
             </div>
             <button id="refresh-btn" class="btn-nexus" style="width: auto; padding: 0.75rem 1.5rem; font-size: 0.8rem;">Update Stream</button>
         </div>
-        
-        <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; margin-bottom: 3rem;">
+
+        <div class="stats-grid">
             <div class="stat-card">
                 <h3>Total Nodes</h3>
                 <p id="total-users">--</p>
@@ -83,17 +84,28 @@
                 <h3>Active Streams</h3>
                 <p id="active-today">--</p>
             </div>
+            <div class="stat-card">
+                <h3>Paid Accounts</h3>
+                <p id="paid-users">--</p>
+            </div>
         </div>
 
-        <div class="stat-card" style="margin-bottom: 3rem; background: rgba(0,0,0,0.2);">
-            <h2 style="font-size: 1.25rem; margin-bottom: 2rem;">User Propagation (Last 7 Days)</h2>
+        <div class="stat-card chart-card">
+            <div class="panel-heading">
+                <h2>User Propagation</h2>
+                <div class="plan-breakdown">
+                    <span>Free <strong id="plan-free">--</strong></span>
+                    <span>Pro <strong id="plan-pro">--</strong></span>
+                    <span>Team <strong id="plan-team">--</strong></span>
+                </div>
+            </div>
             <div style="position: relative; height: 350px;">
                 <canvas id="signupChart"></canvas>
             </div>
         </div>
 
         <div class="table-container">
-            <h2 style="padding: 1.5rem 2rem; margin: 0; font-size: 1.25rem; border-bottom: 1px solid var(--border);">Neural Activity Log</h2>
+            <h2>Neural Activity Log</h2>
             <table id="activity-table">
                 <thead>
                     <tr>
@@ -104,7 +116,40 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td colspan="4" style="text-align: center; padding: 4rem; color: #64748b;">Awaiting incoming data...</td></tr>
+                    <tr><td colspan="4" class="empty-state">Awaiting incoming data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="table-container" id="users">
+            <h2>User Directory</h2>
+            <table id="users-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Plan</th>
+                        <th>Created</th>
+                        <th>Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="4" class="empty-state">Awaiting user data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="table-container" id="usage">
+            <h2>Top Usage Today</h2>
+            <table id="usage-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Requests</th>
+                        <th>Last Update</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="3" class="empty-state">Awaiting usage data...</td></tr>
                 </tbody>
             </table>
         </div>

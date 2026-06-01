@@ -6,6 +6,7 @@ const vm = require('node:vm');
 
 function setupAuthContext() {
   const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'supabase-service.js'), 'utf8');
+  const authCalls = { signUps: [] };
   
   const mockSupabase = {
     createClient: (url, key) => ({
@@ -18,6 +19,7 @@ function setupAuthContext() {
           return { data: { user: { id: '123', email } }, error: null };
         },
         signUp: async ({ email, password }) => {
+          authCalls.signUps.push({ email, password });
           if (email === 'exists@example.com') return { data: { user: null }, error: { message: 'User already registered' } };
           return { data: { user: { id: '456', email } }, error: null };
         },
@@ -54,6 +56,7 @@ function setupAuthContext() {
     console: { warn: () => {}, error: () => {}, log: () => {} }
   };
   context.globalThis = context;
+  context.authCalls = authCalls;
 
   vm.createContext(context);
   vm.runInContext(source, context);
@@ -100,6 +103,23 @@ test('supabaseLogin handles existing user on signup', async () => {
   } catch (err) {
     assert.strictEqual(err.message, 'User already registered');
   }
+});
+
+test('supabaseLogin succeeds on signup and hydrates the new user', async () => {
+  const context = setupAuthContext();
+  const { supabaseLogin, initSupabase } = context;
+
+  await initSupabase();
+
+  const data = await supabaseLogin('newadmin@example.com', 'password', 'signup');
+  assert.ok(data.user);
+  assert.strictEqual(data.user.email, 'newadmin@example.com');
+  assert.deepStrictEqual(context.authCalls.signUps[0], {
+    email: 'newadmin@example.com',
+    password: 'password'
+  });
+  assert.strictEqual(context.state.user.email, 'newadmin@example.com');
+  assert.strictEqual(context.state.plan, 'free');
 });
 
 test('supabaseLogin succeeds with correct credentials', async () => {

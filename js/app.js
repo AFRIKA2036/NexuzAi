@@ -210,7 +210,10 @@ function updateNavForAuth() {
     if (getStartedBtn) getStartedBtn.style.display = 'none';
 
     // Check if user is an admin (from session metadata)
-    const isAdmin = window.supabaseState?.session?.user?.app_metadata?.is_admin;
+    const adminMetadata = window.supabaseState?.session?.user?.app_metadata || {};
+    const isAdmin = adminMetadata.is_admin === true ||
+      adminMetadata.role === 'admin' ||
+      (Array.isArray(adminMetadata.roles) && adminMetadata.roles.includes('admin'));
     if (isAdmin) {
       const adminLink = document.createElement('a');
       adminLink.id = 'adminDashboardLink';
@@ -668,9 +671,18 @@ const ResponseCache = {
 
   async hash(string) {
     const msgUint8 = new TextEncoder().encode(string);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    const cryptoProvider = globalThis.crypto || (typeof window !== 'undefined' ? window.crypto : null);
+    if (cryptoProvider?.subtle) {
+      const hashBuffer = await cryptoProvider.subtle.digest('SHA-256', msgUint8);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    let hash = 0;
+    for (let i = 0; i < string.length; i++) {
+      hash = ((hash << 5) - hash + string.charCodeAt(i)) | 0;
+    }
+    return `fallback_${Math.abs(hash).toString(16)}`;
   },
 
   async get(agentId, systemPrompt, userPrompt) {

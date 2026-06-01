@@ -1,222 +1,350 @@
 // admin/js/admin.js
 
-const config = window.NEXUZ_SUPABASE_CONFIG;
-const sb = supabase.createClient(config.url, config.anonKey);
-
+const config = window.NEXUZ_SUPABASE_CONFIG || {};
 const overlay = document.getElementById('login-overlay');
 const authStatus = document.getElementById('auth-status');
 const authForm = document.getElementById('auth-form');
-const portalTitle = document.getElementById('portal-title');
 const authSubmitBtn = document.getElementById('auth-submit-btn');
+const magicLinkBtn = document.getElementById('magic-link-btn');
 const authTimer = document.getElementById('auth-timer');
 const timerSeconds = document.getElementById('timer-seconds');
 const sidebar = document.getElementById('sidebar');
 const menuToggle = document.getElementById('menu-toggle');
+const refreshBtn = document.getElementById('refresh-btn');
+const usersTable = document.querySelector('#users-table tbody');
 
+let sb = null;
 let cooldownInterval = null;
 let growthChart = null;
+let dashboardReady = false;
+
+function isConfigured() {
+    return Boolean(
+        config.url &&
+        config.anonKey &&
+        !String(config.url).includes('YOUR_SUPABASE') &&
+        !String(config.anonKey).includes('{{')
+    );
+}
+
+function adminFunctionUrl() {
+    const projectUrl = String(config.url || '').replace(/\/+$/, '');
+    return config.adminFunctionUrl || `${projectUrl}/functions/v1/admin-dashboard`;
+}
+
+function setAuthStatus(message, color = '#94a3b8') {
+    authStatus.innerText = message;
+    authStatus.style.color = color;
+}
 
 async function checkAdmin() {
-    try {
-        const { data: { session }, error } = await sb.auth.getSession();
-        
-        // If already logged in, check admin status immediately
+    if (!isConfigured() || !window.supabase) {
+        setAuthStatus('Supabase is not configured for this deployment.', '#ef4444');
+        authSubmitBtn.disabled = true;
+        magicLinkBtn.disabled = true;
+        return;
+    }
+
+    sb = window.supabase.createClient(config.url, config.anonKey);
+    sb.auth.onAuthStateChange(async (_event, session) => {
         if (session) {
-            const isAdmin = session.user.app_metadata?.is_admin;
-            if (isAdmin) {
-                overlay.style.display = 'none';
-                initDashboard();
-                return;
-            } else {
-                authStatus.innerText = "ACCESS DENIED: Non-Admin Account.";
-                authStatus.style.color = "#ef4444";
-                authSubmitBtn.innerText = "Try Different Account";
-                authForm.onsubmit = async (e) => {
-                    e.preventDefault();
-                    await sb.auth.signOut();
-                    window.location.reload();
-                };
-                return;
-            }
+            await openDashboardForSession();
+        } else {
+            overlay.style.display = 'flex';
+            dashboardReady = false;
         }
+    });
+
+    const { data: { session } } = await sb.auth.getSession();
+
+    if (!session) {
+        overlay.style.display = 'flex';
+        return;
+    }
+
+    setAuthStatus('Verifying admin access...');
+    await openDashboardForSession();
+}
+
+async function openDashboardForSession() {
+    try {
+        const data = await callAdminApi({ action: 'summary' });
+        overlay.style.display = 'none';
+        initDashboard();
+        renderDashboard(data);
     } catch (err) {
-        console.error(err);
+        overlay.style.display = 'flex';
+        if (err.status === 401) {
+            setAuthStatus('Session expired. Sign in again.', '#ef4444');
+            return;
+        }
+        if (err.status === 403) {
+            setAuthStatus('Access denied. This account is not marked as admin.', '#ef4444');
+            return;
+        }
+        setAuthStatus(`Admin check failed: ${err.message}`, '#ef4444');
     }
 }
 
 function startCooldown(seconds) {
     if (cooldownInterval) clearInterval(cooldownInterval);
     authTimer.style.display = 'block';
-    authSubmitBtn.disabled = true;
+    magicLinkBtn.disabled = true;
     let remaining = seconds;
-    
+
     timerSeconds.innerText = remaining;
-    
+
     cooldownInterval = setInterval(() => {
         remaining--;
         timerSeconds.innerText = remaining;
         if (remaining <= 0) {
             clearInterval(cooldownInterval);
             authTimer.style.display = 'none';
-            authSubmitBtn.disabled = false;
-            authSubmitBtn.innerText = "Resend Access Link";
+            magicLinkBtn.disabled = false;
+            magicLinkBtn.innerText = 'Email Magic Link';
         }
     }, 1000);
 }
 
 authForm.onsubmit = async (e) => {
     e.preventDefault();
-    const email = document.getElementById('auth-email').value;
-    
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+
     authSubmitBtn.disabled = true;
-    authSubmitBtn.innerText = 'Transmitting Link...';
-    
-    // Determine the exact redirect URL
-    const redirectTo = window.location.origin + "/admin/index.html";
-    
+    authSubmitBtn.innerText = 'Signing In...';
+    setAuthStatus('Checking credentials...');
+
     try {
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        await openDashboardForSession();
+    } catch (err) {
+        setAuthStatus(`ERROR: ${err.message}`, '#ef4444');
+    } finally {
+        authSubmitBtn.disabled = false;
+        authSubmitBtn.innerText = 'Sign In';
+    }
+};
+
+magicLinkBtn.onclick = async () => {
+    const email = document.getElementById('auth-email').value.trim();
+    if (!email) {
+        setAuthStatus('Enter your admin email first.', '#f0a84a');
+        return;
+    }
+
+    magicLinkBtn.disabled = true;
+    magicLinkBtn.innerText = 'Sending Link...';
+
+    try {
+        const redirectTo = `${window.location.origin}/admin/index.html`;
         const { error } = await sb.auth.signInWithOtp({
-            email: email,
-            options: {
-                emailRedirectTo: redirectTo
-            }
+            email,
+            options: { emailRedirectTo: redirectTo }
         });
-        
+
         if (error) {
-            // Check for rate limit error
-            if (error.message.includes('seconds')) {
-                const seconds = parseInt(error.message.match(/\d+/)[0]);
-                authStatus.innerText = "Security cooldown active.";
-                authStatus.style.color = "#f0a84a";
-                startCooldown(seconds);
-                return;
-            }
+            const match = error.message.match(/\d+/);
+            if (match) startCooldown(Number(match[0]));
             throw error;
         }
-        
-        authStatus.innerText = "Link Transmitted! Check your email to enter the Nexuz.";
-        authStatus.style.color = "#4af0c8";
-        authSubmitBtn.innerText = "Link Sent";
-        startCooldown(60); 
-        
+
+        setAuthStatus('Link sent. Check your email to enter the admin dashboard.', '#4af0c8');
+        magicLinkBtn.innerText = 'Link Sent';
+        startCooldown(60);
     } catch (err) {
-        authStatus.innerText = "ERROR: " + err.message;
-        authStatus.style.color = "#ef4444";
-        authSubmitBtn.disabled = false;
-        authSubmitBtn.innerText = "Resend Link";
+        setAuthStatus(`ERROR: ${err.message}`, '#ef4444');
+        if (authTimer.style.display === 'none') {
+            magicLinkBtn.disabled = false;
+            magicLinkBtn.innerText = 'Email Magic Link';
+        }
     }
 };
 
 function initDashboard() {
-    loadDashboard();
-    
-    document.getElementById('refresh-btn').onclick = loadDashboard;
-    
+    if (dashboardReady) return;
+    dashboardReady = true;
+
+    refreshBtn.onclick = loadDashboard;
+
     if (menuToggle) {
-        menuToggle.onclick = () => {
-            sidebar.classList.toggle('open');
-        };
+        menuToggle.onclick = () => sidebar.classList.toggle('open');
     }
 
     document.addEventListener('click', (e) => {
-        if (window.innerWidth <= 1024 && 
-            !sidebar.contains(e.target) && 
+        if (window.innerWidth <= 1024 &&
+            sidebar &&
+            !sidebar.contains(e.target) &&
             e.target !== menuToggle) {
             sidebar.classList.remove('open');
         }
     });
+
+    usersTable.addEventListener('change', async (e) => {
+        if (!e.target.classList.contains('plan-select')) return;
+        await updateUserPlan(e.target);
+    });
 }
 
 async function loadDashboard() {
-    const refreshBtn = document.getElementById('refresh-btn');
     refreshBtn.disabled = true;
     refreshBtn.innerText = 'Syncing...';
 
     try {
-        const [usersRes, gensRes, activeRes] = await Promise.all([
-            sb.from('profiles').select('*', { count: 'exact', head: true }),
-            sb.from('generations').select('*', { count: 'exact', head: true }),
-            sb.from('usage_daily')
-                .select('user_id', { count: 'exact', head: true })
-                .eq('usage_date', new Date().toISOString().split('T')[0])
-        ]);
-        
-        document.getElementById('total-users').innerText = usersRes.count || 0;
-        document.getElementById('total-gens').innerText = gensRes.count || 0;
-        document.getElementById('active-today').innerText = activeRes.count || 0;
-
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const { data: growthData } = await sb.from('profiles').select('created_at').gte('created_at', sevenDaysAgo.toISOString());
-
-        if (growthData) renderGrowthChart(growthData);
-
-        const { data: recentGens } = await sb
-            .from('generations')
-            .select('created_at, agent_id, prompt, profiles(email)')
-            .order('created_at', { ascending: false })
-            .limit(10);
-
-        const tbody = document.querySelector('#activity-table tbody');
-        tbody.innerHTML = recentGens?.map(gen => `
-            <tr>
-                <td><span style="font-weight: 600; color: var(--primary);">${gen.profiles?.email || 'Unknown'}</span></td>
-                <td><code style="background: rgba(37,99,235,0.1); color: #fff; padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid rgba(37,99,235,0.2); font-family: 'DM Mono';">${gen.agent_id}</code></td>
-                <td>${gen.prompt.substring(0, 60)}...</td>
-                <td style="color: #64748b; font-size: 0.8rem;">${new Date(gen.created_at).toLocaleString()}</td>
-            </tr>
-        `).join('') || '<tr><td colspan="4" style="text-align: center; padding: 4rem;">Signal Lost: No recent activity.</td></tr>';
-        
+        const data = await callAdminApi({ action: 'summary' });
+        renderDashboard(data);
     } catch (err) {
         console.error(err);
+        setAuthStatus(`Dashboard refresh failed: ${err.message}`, '#ef4444');
+        if (err.status === 401 || err.status === 403) overlay.style.display = 'flex';
     } finally {
         refreshBtn.disabled = false;
         refreshBtn.innerText = 'Update Stream';
     }
 }
 
-function renderGrowthChart(data) {
-    const ctx = document.getElementById('signupChart').getContext('2d');
-    const counts = {};
-    data.forEach(row => {
-        const date = new Date(row.created_at).toLocaleDateString();
-        counts[date] = (counts[date] || 0) + 1;
+async function callAdminApi(payload) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) {
+        const err = new Error('Missing admin session');
+        err.status = 401;
+        throw err;
+    }
+
+    const response = await fetch(adminFunctionUrl(), {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
     });
 
-    const labels = [];
-    const values = [];
-    for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dateLabel = d.toLocaleDateString();
-        labels.push(dateLabel);
-        values.push(counts[dateLabel] || 0);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        const err = new Error(data.error || `Admin API failed with ${response.status}`);
+        err.status = response.status;
+        throw err;
     }
+    return data;
+}
+
+function renderDashboard(data) {
+    const metrics = data.metrics || {};
+    document.getElementById('total-users').innerText = formatNumber(metrics.totalUsers);
+    document.getElementById('total-gens').innerText = formatNumber(metrics.totalGenerations);
+    document.getElementById('active-today').innerText = formatNumber(metrics.activeToday);
+    document.getElementById('paid-users').innerText = formatNumber(metrics.paidUsers);
+
+    const plans = metrics.plans || {};
+    document.getElementById('plan-free').innerText = formatNumber(plans.free);
+    document.getElementById('plan-pro').innerText = formatNumber(plans.pro);
+    document.getElementById('plan-team').innerText = formatNumber(plans.team);
+    document.getElementById('last-sync').innerText = `Last sync: ${formatDateTime(data.generatedAt)}`;
+
+    renderGrowthChart(data.signupTrend || []);
+    renderActivity(data.recentGenerations || []);
+    renderUsers(data.recentUsers || []);
+    renderUsage(data.topUsageToday || []);
+}
+
+function renderActivity(rows) {
+    const tbody = document.querySelector('#activity-table tbody');
+    if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No recent activity.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = rows.map((gen) => `
+        <tr>
+            <td><span class="user-name">${escapeHtml(gen.email || 'Unknown')}</span></td>
+            <td><code>${escapeHtml(gen.agentId || 'unknown')}</code></td>
+            <td>${escapeHtml(gen.prompt || '')}</td>
+            <td style="color: #64748b; font-size: 0.8rem;">${formatDateTime(gen.createdAt)}</td>
+        </tr>
+    `).join('');
+}
+
+function renderUsers(rows) {
+    if (!rows.length) {
+        usersTable.innerHTML = '<tr><td colspan="4" class="empty-state">No users found.</td></tr>';
+        return;
+    }
+
+    usersTable.innerHTML = rows.map((user) => `
+        <tr>
+            <td>
+                <span class="user-name">${escapeHtml(user.fullName || user.email || 'Unknown')}</span>
+                <span class="user-email">${escapeHtml(user.email || '')}</span>
+            </td>
+            <td>
+                <select class="plan-select" data-user-id="${escapeHtml(user.id)}" data-current-plan="${escapeHtml(user.plan)}">
+                    ${['free', 'pro', 'team'].map((plan) => `<option value="${plan}" ${plan === user.plan ? 'selected' : ''}>${plan}</option>`).join('')}
+                </select>
+            </td>
+            <td style="color: #94a3b8;">${formatDate(user.createdAt)}</td>
+            <td style="color: #64748b;">${formatDateTime(user.updatedAt)}</td>
+        </tr>
+    `).join('');
+}
+
+function renderUsage(rows) {
+    const tbody = document.querySelector('#usage-table tbody');
+    if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="3" class="empty-state">No usage recorded today.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = rows.map((row) => `
+        <tr>
+            <td><span class="user-name">${escapeHtml(row.email || 'Unknown')}</span></td>
+            <td>${formatNumber(row.requestCount)}</td>
+            <td style="color: #64748b;">${formatDateTime(row.updatedAt)}</td>
+        </tr>
+    `).join('');
+}
+
+async function updateUserPlan(select) {
+    const userId = select.dataset.userId;
+    const nextPlan = select.value;
+    const previousPlan = select.dataset.currentPlan;
+
+    select.disabled = true;
+    try {
+        await callAdminApi({ action: 'updatePlan', userId, plan: nextPlan });
+        select.dataset.currentPlan = nextPlan;
+        await loadDashboard();
+    } catch (err) {
+        select.value = previousPlan;
+        setAuthStatus(`Plan update failed: ${err.message}`, '#ef4444');
+    } finally {
+        select.disabled = false;
+    }
+}
+
+function renderGrowthChart(rows) {
+    if (!window.Chart) return;
+    const ctx = document.getElementById('signupChart').getContext('2d');
+    const labels = rows.map((row) => formatShortDate(row.date));
+    const values = rows.map((row) => Number(row.count || 0));
 
     if (growthChart) growthChart.destroy();
 
     growthChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: labels,
+            labels,
             datasets: [{
                 label: 'Signups',
                 data: values,
                 borderColor: '#2563eb',
                 borderWidth: 4,
-                pointRadius: 6,
+                pointRadius: 5,
                 pointBackgroundColor: '#2563eb',
-                tension: 0.4,
+                tension: 0.35,
                 fill: true,
-                backgroundColor: (context) => {
-                    const chart = context.chart;
-                    const {ctx, chartArea} = chart;
-                    if (!chartArea) return null;
-                    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-                    gradient.addColorStop(0, 'transparent');
-                    gradient.addColorStop(1, 'rgba(37, 99, 235, 0.2)');
-                    return gradient;
-                }
+                backgroundColor: 'rgba(37, 99, 235, 0.16)'
             }]
         },
         options: {
@@ -233,8 +361,36 @@ function renderGrowthChart(data) {
 
 document.getElementById('logout-btn').onclick = async (e) => {
     e.preventDefault();
-    await sb.auth.signOut();
+    if (sb) await sb.auth.signOut();
     window.location.reload();
 };
+
+function formatNumber(value) {
+    return Number(value || 0).toLocaleString();
+}
+
+function formatDate(value) {
+    if (!value) return '-';
+    return new Date(value).toLocaleDateString();
+}
+
+function formatShortDate(value) {
+    if (!value) return '';
+    return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatDateTime(value) {
+    if (!value) return '-';
+    return new Date(value).toLocaleString();
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
 checkAdmin();

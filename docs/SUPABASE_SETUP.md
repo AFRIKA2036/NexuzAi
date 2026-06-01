@@ -168,3 +168,33 @@ supabase functions deploy paystack-webhook --no-verify-jwt --project-ref YOUR_PR
 If the button says it cannot send a request to the Edge Function, check that
 `paystack-initialize` exists in Supabase Dashboard > Edge Functions for the same
 project ref used in `js/supabase-config.js`.
+
+## 8. Admin Dashboard
+
+The admin UI at `/admin/index.html` signs in with Supabase Auth, then calls the
+`admin-dashboard` Edge Function. The browser never reads admin tables directly
+and never receives the service-role key.
+
+Required secret:
+
+```bash
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key --project-ref YOUR_PROJECT_REF
+```
+
+Deploy the function:
+
+```bash
+supabase functions deploy admin-dashboard --project-ref YOUR_PROJECT_REF
+```
+
+Mark an existing Supabase Auth user as an admin from the SQL Editor:
+
+```sql
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"is_admin": true}'::jsonb
+where email = 'admin@nexuzai.io';
+```
+
+The admin function also accepts `app_metadata.role = "admin"` or an
+`app_metadata.roles` array containing `"admin"`. After changing metadata, sign
+out and sign in again so the browser receives a fresh JWT.
