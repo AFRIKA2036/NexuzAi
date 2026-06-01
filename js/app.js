@@ -46,8 +46,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (href === '#' || href === '#team-hub') return; // Handled by routing
       
       e.preventDefault();
-      const target = document.querySelector(href);
-      if (target) target.scrollIntoView({ behavior: 'smooth' });
+      
+      // Update hash to trigger handleRouting
+      if (window.location.hash !== href) {
+        window.location.hash = href;
+      } else {
+        // If hash is same, just scroll
+        const target = document.querySelector(href);
+        if (target) target.scrollIntoView({ behavior: 'smooth' });
+      }
     });
   });
 
@@ -230,7 +237,7 @@ function updateNavForAuth() {
   if (teamLink) {
     if (state.plan === 'team' || state.verificationMode) {
       teamLink.style.display = 'inline-block';
-      if (state.verificationMode && state.plan !== 'team') {
+      if (state.verificationMode && state.plan === 'free') {
         teamLink.innerHTML = 'Team Hub <span class="nav-badge">Preview</span>';
       } else {
         teamLink.textContent = 'Team Hub';
