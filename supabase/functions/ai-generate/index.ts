@@ -254,7 +254,7 @@ function validateRequestBody(body: Record<string, unknown>) {
   if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid request body' };
 
   const agentId = String(body.agent_id || '');
-  if (!ALLOWED_AGENTS.has(agentId)) return { ok: false, error: 'Invalid agent' };
+  if (!ALLOWED_AGENTS.has(agentId)) return { ok: false, error: `Invalid agent ID: ${agentId}` };
 
   if (!Array.isArray(body.messages) || body.messages.length === 0 || body.messages.length > MAX_MESSAGES) {
     return { ok: false, error: 'Invalid messages' };
