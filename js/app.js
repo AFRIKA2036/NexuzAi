@@ -1796,15 +1796,23 @@ function switchTeamTab(tabId) {
 // --- INIT DATA ---
 async function initTeamHub() {
   if (supabaseState.ready && state.user) {
-    const team = await fetchTeamContext();
-    if (team) {
-      state.currentTeam = team;
-      state.teamMembers = await fetchTeamMembers(team.id);
-      state.teamDocuments = await fetchSharedDocuments(team.id);
-    } else if (state.plan === 'team' || state.verificationMode) {
-      // In production, we might auto-create a team for a team plan owner here
-      // if one doesn't exist.
-      console.log("Team context not found.");
+    try {
+      const team = await fetchTeamContext();
+      if (team) {
+        state.currentTeam = team;
+        
+        // Parallel fetch for better performance
+        const [members, documents] = await Promise.all([
+          fetchTeamMembers(team.id),
+          fetchSharedDocuments(team.id)
+        ]);
+        
+        state.teamMembers = members;
+        state.teamDocuments = documents;
+      }
+    } catch (err) {
+      console.error("Team Hub Initialization Error:", err);
+      showToast('❌ Failed to load team data');
     }
   }
 

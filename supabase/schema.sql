@@ -174,29 +174,56 @@ create policy "usage is readable by owner"
   on public.usage_daily for select
   using (auth.uid() = user_id);
 
-drop policy if exists "export files are readable by owner" on storage.objects;
-create policy "export files are readable by owner"
+drop policy if exists "export files are readable by owner or team" on storage.objects;
+create policy "export files are readable by owner or team"
   on storage.objects for select
-  using (bucket_id = 'exports' and auth.uid()::text = (storage.foldername(name))[1]);
+  using (
+    bucket_id = 'exports' and (
+      auth.uid()::text = (storage.foldername(name))[1] or
+      exists (
+        select 1 from public.exports e
+        where e.storage_path = name
+        and (
+          e.user_id = auth.uid() or
+          (e.team_id is not null and exists (
+            select 1 from public.team_members tm
+            where tm.team_id = e.team_id
+            and tm.user_id = auth.uid()
+          ))
+        )
+      )
+    )
+  );
 
 drop policy if exists "export files are writable by owner" on storage.objects;
 create policy "export files are writable by owner"
   on storage.objects for insert
-  with check (bucket_id = 'exports' and auth.uid()::text = (storage.foldername(name))[1]);
+  with check (
+    bucket_id = 'exports' and 
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
 
+-- Enhanced New User Trigger
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer set search_path = public
 as $$
+declare
+  v_full_name text;
 begin
-  insert into public.profiles (id, email, full_name)
-  values (
-    new.id,
-    new.email,
-    coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1))
-  )
-  on conflict (id) do nothing;
+  v_full_name := coalesce(
+    new.raw_user_meta_data->>'full_name', 
+    new.raw_user_meta_data->>'name',
+    split_part(new.email, '@', 1)
+  );
+
+  insert into public.profiles (id, email, full_name, plan)
+  values (new.id, new.email, v_full_name, 'free')
+  on conflict (id) do update
+  set email = excluded.email,
+      full_name = coalesce(public.profiles.full_name, excluded.full_name);
+      
   return new;
 end;
 $$;
