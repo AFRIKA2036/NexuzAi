@@ -12,7 +12,14 @@ const ALLOWED_AGENTS = new Set([
   'trip',
   'event',
   'cover',
-  'linkedin'
+  'linkedin',
+  'research',
+  'coding',
+  'viral',
+  'minutes',
+  'startup',
+  'academic',
+  'converter'
 ]);
 
 Deno.serve(async (req) => {
