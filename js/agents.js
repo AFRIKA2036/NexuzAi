@@ -146,6 +146,204 @@ const AGENTS = {
     ],
     systemPrompt: `You are a LinkedIn optimization expert and personal branding specialist. Provide: 1) Optimized headline (3 options), 2) Powerful About section, 3) Keyword recommendations, 4) Profile completeness tips, 5) Connection/engagement strategy. Make it recruiter-magnet ready.`,
     buildPrompt: (fields) => `Optimize my LinkedIn profile for ${fields.target_role}.\n\nCurrent headline: ${fields.current_headline || 'None'}\nCurrent summary: ${fields.current_summary || 'None'}\nExperience: ${fields.experience}\n\nProvide optimized headline options, About section, and improvement tips.`
+  },
+
+  research: {
+    icon: '🔬',
+    title: 'Research Architect',
+    desc: 'Deep-dive reports with structured analysis & insights',
+    tier: 'free', // Set to free for testing as requested
+    fallbacks: TASK_MODEL_FALLBACKS,
+    fields: [
+      { id: 'topic', label: 'RESEARCH TOPIC', type: 'input', placeholder: 'e.g. Impact of AI on Remote Work 2026' },
+      { id: 'depth', label: 'ANALYSIS DEPTH', type: 'select', options: ['Executive Summary', 'Standard Analysis', 'Deep Technical Dive', 'Literature Review'] },
+      { id: 'source_file', label: 'UPLOAD SOURCE MATERIAL (optional)', type: 'file', accept: '.pdf,.txt,.docx' },
+      { id: 'raw_context', label: 'ADDITIONAL CONTEXT / URLS', type: 'textarea', placeholder: 'Paste specific data, questions, or web links to investigate...', rows: 4 },
+      { id: 'focus_areas', label: 'SPECIFIC FOCUS AREAS', type: 'input', placeholder: 'e.g. economic impact, psychological factors' },
+    ],
+    systemPrompt: withPromptGuard(`You are an elite Senior Research Analyst. Your task is to produce a comprehensive, structured research report on the provided topic. 
+    Use the following structure:
+    1. EXECUTIVE SUMMARY (High-level findings)
+    2. CORE ANALYSIS (Detailed breakdown of the topic)
+    3. TRENDS & FUTURE OUTLOOK (Forecasts and emerging patterns)
+    4. RISKS & CHALLENGES (Critical counter-points)
+    5. STRATEGIC RECOMMENDATIONS (Actionable insights)
+    Maintain a objective, data-driven, and highly professional tone.`),
+    buildPrompt: (fields) => `Conduct a ${fields.depth} on the following topic: ${fields.topic}
+    
+    Focus areas: ${fields.focus_areas || 'Comprehensive overview'}
+    
+    Source Material / Context:
+    ${fields.source_file || ''}
+    ${fields.raw_context || 'No specific context provided'}
+    
+    Generate a complete, structured research architect report.`
+  },
+
+  coding: {
+    icon: '💻',
+    title: 'Code Mentor',
+    desc: 'Debug, refactor, and explain complex code logic',
+    tier: 'free', // Set to free for testing as requested
+    fallbacks: TASK_MODEL_FALLBACKS,
+    fields: [
+      { id: 'language', label: 'PROGRAMMING LANGUAGE', type: 'input', placeholder: 'e.g. JavaScript, Python, Rust, SQL' },
+      { id: 'code_input', label: 'PASTE CODE OR UPLOAD FILE', type: 'textarea', placeholder: 'Paste the code snippet you want to debug, refactor, or understand...', rows: 8 },
+      { id: 'task', label: 'WHAT DO YOU NEED?', type: 'select', options: ['Debug (Find Bugs)', 'Refactor (Improve Quality)', 'Explain (How it works)', 'Convert to another language', 'Optimize Performance'] },
+      { id: 'context', label: 'ISSUE DESCRIPTION / GOAL', type: 'textarea', placeholder: 'Describe the bug, the specific goal, or what part is confusing...', rows: 3 },
+    ],
+    systemPrompt: withPromptGuard(`You are an expert Senior Software Engineer and Mentor. Your goal is to help the user with their code while teaching them best practices.
+    Depending on the task:
+    - DEBUG: Find the root cause, explain why it's happening, and provide a clean fix.
+    - REFACTOR: Improve readability and efficiency while maintaining functionality. Use modern idiomatic patterns.
+    - EXPLAIN: Provide a line-by-line or conceptual breakdown using plain English.
+    - CONVERT: Provide a syntax-accurate translation to the target language.
+    - OPTIMIZE: Focus on Big O efficiency and resource usage.
+    Always provide the improved code in a markdown block and explain the "why" behind your changes.`),
+    buildPrompt: (fields) => `I need you to ${fields.task} for the following ${fields.language} code:
+    
+    Code:
+    ${fields.code_input}
+    
+    Context / Goal:
+    ${fields.context || 'Help me improve this code.'}
+    
+    Provide the ${fields.task} results with detailed explanations.`
+  },
+
+  viral: {
+    icon: '🤳',
+    title: 'Viral Content Creator',
+    desc: 'Hooks, scripts, and threads that stop the scroll',
+    tier: 'free',
+    fallbacks: TASK_MODEL_FALLBACKS,
+    fields: [
+      { id: 'platform', label: 'PLATFORM', type: 'select', options: ['TikTok / Reels', 'LinkedIn', 'Twitter / X', 'YouTube Shorts', 'Facebook'] },
+      { id: 'topic', label: 'TOPIC / HOOK IDEA', type: 'input', placeholder: 'e.g. How I built a SaaS in 30 days' },
+      { id: 'target_audience', label: 'TARGET AUDIENCE', type: 'input', placeholder: 'e.g. Gen Z entrepreneurs, HR managers' },
+      { id: 'style', label: 'CONTENT STYLE', type: 'select', options: ['Educational / How-to', 'Controversial / Hot Take', 'Story-driven', 'Funny / Relatable', 'Professional Insights'] },
+      { id: 'details', label: 'KEY POINTS TO INCLUDE', type: 'textarea', placeholder: 'Specific details, stats, or stories you want in the content...', rows: 4 },
+    ],
+    systemPrompt: withPromptGuard(`You are a world-class Viral Content Strategist and Ghostwriter. Your goal is to create content that maximizes engagement, reach, and shareability. 
+    - For TikTok/Reels/Shorts: Focus on high-retention scripts with a powerful hook in the first 3 seconds.
+    - For LinkedIn: Focus on professional storytelling, clear formatting (line breaks), and a call-to-action.
+    - For Twitter/X: Create punchy, high-value threads with a viral opening hook.
+    Always include 3 alternative "Viral Hooks" at the top and suggested hashtags/keywords.`),
+    buildPrompt: (fields) => `Create viral ${fields.platform} content about "${fields.topic}" for ${fields.target_audience}. 
+    Style: ${fields.style}
+    Key points: ${fields.details || 'Not provided'}
+    
+    Provide viral hooks, the main content script/body, and engagement tips.`
+  },
+
+  minutes: {
+    icon: '📝',
+    title: 'Meeting Minutes Pro',
+    desc: 'Turn messy transcripts into clear action items',
+    tier: 'free',
+    fallbacks: TASK_MODEL_FALLBACKS,
+    fields: [
+      { id: 'transcript_file', label: 'UPLOAD TRANSCRIPT (PDF, TXT, DOCX)', type: 'file', accept: '.pdf,.txt,.docx' },
+      { id: 'transcript_text', label: 'OR PASTE TRANSCRIPT / NOTES', type: 'textarea', placeholder: 'Paste your Zoom/Teams/Otter transcript or raw meeting notes...', rows: 8 },
+      { id: 'meeting_type', label: 'MEETING TYPE', type: 'select', options: ['Standard Business Meeting', '1-on-1 Catchup', 'Project Kickoff', 'Daily Standup', 'Client Presentation'] },
+      { id: 'focus', label: 'SPECIFIC FOCUS (optional)', type: 'input', placeholder: 'e.g. emphasize technical decisions, focus on budget' },
+    ],
+    systemPrompt: withPromptGuard(`You are an expert Executive Assistant. Transform the provided transcript into professional Meeting Minutes.
+    Structure:
+    1. MEETING OVERVIEW (Date, Subject, Participants if available)
+    2. EXECUTIVE SUMMARY (3-5 sentence overview)
+    3. KEY DISCUSSIONS (Categorized by topic)
+    4. DECISIONS MADE (Clear list of outcomes)
+    5. ACTION ITEMS (Task, Owner, and Deadline - use [ ] for checkboxes)
+    Be concise, objective, and highlight the most critical information.`),
+    buildPrompt: (fields) => `Generate meeting minutes for this ${fields.meeting_type}:\n\n${fields.transcript_file || ''}\n${fields.transcript_text}\n\nAdditional Focus: ${fields.focus || 'None'}`
+  },
+
+  startup: {
+    icon: '🚀',
+    title: 'Startup Architect',
+    desc: 'Validate ideas and build your business model',
+    tier: 'free',
+    fallbacks: TASK_MODEL_FALLBACKS,
+    fields: [
+      { id: 'idea', label: 'STARTUP IDEA / CONCEPT', type: 'input', placeholder: 'e.g. AI-powered recipe planner for keto athletes' },
+      { id: 'problem', label: 'PROBLEM YOU ARE SOLVING', type: 'textarea', placeholder: 'Describe the pain point and who has it...', rows: 3 },
+      { id: 'revenue', label: 'REVENUE MODEL', type: 'select', options: ['SaaS / Subscription', 'Marketplace / Transactional', 'Ad-supported', 'Freemium', 'Direct Sales'] },
+      { id: 'competitors', label: 'COMPETITORS (optional)', type: 'input', placeholder: 'Who else is doing this?' },
+    ],
+    systemPrompt: withPromptGuard(`You are a seasoned Startup Consultant and Venture Capitalist. Your goal is to architect and validate a business concept. 
+    Provide:
+    1. IDEA VALIDATION (Is this a real problem? Market size estimate)
+    2. UNIQUE VALUE PROPOSITION (Why will you win?)
+    3. TARGET AUDIENCE (Specific ICP - Ideal Customer Profile)
+    4. PRODUCT ROADMAP (MVP features vs Future)
+    5. GO-TO-MARKET STRATEGY (How will you get your first 100 users?)
+    6. REVENUE ANALYSIS (Scalability of the model)
+    Be brutally honest but constructive.`),
+    buildPrompt: (fields) => `Architect a startup for this idea: ${fields.idea}. 
+    Problem: ${fields.problem}
+    Model: ${fields.revenue}
+    Competitors: ${fields.competitors || 'None mentioned'}
+    
+    Provide a full startup architecture and validation report.`
+  },
+
+  academic: {
+    icon: '🎓',
+    title: 'Academic Essay Drafter',
+    desc: 'Structure and draft high-quality academic papers',
+    tier: 'free',
+    fallbacks: TASK_MODEL_FALLBACKS,
+    fields: [
+      { id: 'topic', label: 'ESSAY TOPIC / PROMPT', type: 'input', placeholder: 'e.g. The Role of Stoicism in Modern Psychology' },
+      { id: 'level', label: 'ACADEMIC LEVEL', type: 'select', options: ['High School', 'Undergraduate', 'Graduate / PhD', 'Professional / Journal'] },
+      { id: 'style', label: 'CITATION STYLE', type: 'select', options: ['APA 7th Edition', 'MLA 9th Edition', 'Chicago', 'Harvard', 'IEEE'] },
+      { id: 'source_material', label: 'SOURCES / NOTES (optional)', type: 'textarea', placeholder: 'Paste references, key arguments, or data you must include...', rows: 5 },
+      { id: 'word_count', label: 'TARGET WORD COUNT', type: 'input', placeholder: 'e.g. 1000, 2500' },
+    ],
+    systemPrompt: withPromptGuard(`You are a Senior Academic Writing Tutor. Your goal is to help the user structure and draft a high-quality academic paper. 
+    Provide:
+    1. THESIS STATEMENT (Strong, arguable, and clear)
+    2. DETAILED OUTLINE (Introduction, Body Paragraphs with evidence, Conclusion)
+    3. DRAFTING SUGGESTIONS (Key academic vocabulary to use)
+    4. CRITICAL ANALYSIS (Points to address to strengthen the argument)
+    5. CITATION GUIDELINES (How to cite specific sources in the requested style)
+    Maintain a formal, objective, and scholarly tone throughout.`),
+    buildPrompt: (fields) => `Draft an ${fields.level} academic paper outline and draft for: ${fields.topic}. 
+    Citation Style: ${fields.style}
+    Target Length: ${fields.word_count} words
+    Source Material: ${fields.source_material || 'None provided'}
+    
+    Provide a thesis, full outline, and key drafting sections.`
+  },
+
+  converter: {
+    icon: '🔄',
+    title: 'Universal Code Converter',
+    desc: 'Translate code between any programming language',
+    tier: 'free',
+    fallbacks: TASK_MODEL_FALLBACKS,
+    fields: [
+      { id: 'source_lang', label: 'SOURCE LANGUAGE', type: 'input', placeholder: 'e.g. C++, Java, PHP' },
+      { id: 'target_lang', label: 'TARGET LANGUAGE', type: 'input', placeholder: 'e.g. Python, Go, Rust, TypeScript' },
+      { id: 'source_code', label: 'PASTE CODE OR UPLOAD FILE', type: 'textarea', placeholder: 'Paste the source code you want to translate...', rows: 8 },
+      { id: 'context', label: 'CONVERSION GOALS (optional)', type: 'input', placeholder: 'e.g. maintain performance, use modern syntax' },
+    ],
+    systemPrompt: withPromptGuard(`You are an expert Polyglot Software Engineer specializing in code translation and cross-platform migration. Your goal is to convert code from the source language to the target language with 100% logic parity.
+    Requirements:
+    1. SYNTAX ACCURACY: Ensure the output follows the target language's latest standards and idioms.
+    2. LOGIC PARITY: Do not change the core algorithm or logic unless required by the target language's paradigms (e.g. procedural to functional).
+    3. DOCUMENTATION: Add clear comments explaining how specific source features (like pointers or memory management) were handled in the target language.
+    4. DEPENDENCIES: Suggest equivalent libraries or modules in the target language.
+    Always provide the converted code in a markdown block followed by "Conversion Notes".`),
+    buildPrompt: (fields) => `Translate the following ${fields.source_lang} code into ${fields.target_lang}:
+    
+    Source Code:
+    ${fields.source_code}
+    
+    Conversion Goals: ${fields.context || 'Standard idiomatic translation'}
+    
+    Provide the full ${fields.target_lang} version and detailed conversion notes.`
   }
 };
 

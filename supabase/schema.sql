@@ -25,9 +25,26 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.teams (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.team_members (
+  team_id uuid not null references public.teams(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role text not null default 'member', -- 'admin', 'member'
+  created_at timestamptz not null default now(),
+  primary key (team_id, user_id)
+);
+
 create table if not exists public.generations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
+  team_id uuid references public.teams(id) on delete set null,
   agent_id text not null,
   prompt text not null,
   output text not null,
@@ -38,6 +55,7 @@ create table if not exists public.generations (
 create table if not exists public.exports (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
+  team_id uuid references public.teams(id) on delete set null,
   generation_id uuid references public.generations(id) on delete set null,
   agent_id text not null,
   format public.output_format not null,
@@ -59,9 +77,54 @@ values ('exports', 'exports', false)
 on conflict (id) do nothing;
 
 alter table public.profiles enable row level security;
+alter table public.teams enable row level security;
+alter table public.team_members enable row level security;
 alter table public.generations enable row level security;
 alter table public.exports enable row level security;
 alter table public.usage_daily enable row level security;
+
+-- Teams: Owners can manage, members can view
+drop policy if exists "teams are readable by members" on public.teams;
+create policy "teams are readable by members"
+  on public.teams for select
+  using (
+    auth.uid() = owner_id or 
+    exists (select 1 from public.team_members where team_id = id and user_id = auth.uid())
+  );
+
+drop policy if exists "teams are manageable by owners" on public.teams;
+create policy "teams are manageable by owners"
+  on public.teams for all
+  using (auth.uid() = owner_id)
+  with check (auth.uid() = owner_id);
+
+-- Team Members: Members can see their teammates
+drop policy if exists "team members are readable by teammates" on public.team_members;
+create policy "team members are readable by teammates"
+  on public.team_members for select
+  using (
+    exists (select 1 from public.team_members tm where tm.team_id = team_id and tm.user_id = auth.uid()) or
+    exists (select 1 from public.teams t where t.id = team_id and t.owner_id = auth.uid())
+  );
+
+drop policy if exists "team members are manageable by owners" on public.team_members;
+create policy "team members are manageable by owners"
+  on public.team_members for all
+  using (exists (select 1 from public.teams where id = team_id and owner_id = auth.uid()))
+  with check (exists (select 1 from public.teams where id = team_id and owner_id = auth.uid()));
+
+-- Profiles: Shared visibility within teams
+drop policy if exists "profiles are readable by teammates" on public.profiles;
+create policy "profiles are readable by teammates"
+  on public.profiles for select
+  using (
+    auth.uid() = id or
+    exists (
+      select 1 from public.team_members tm1
+      join public.team_members tm2 on tm1.team_id = tm2.team_id
+      where tm1.user_id = auth.uid() and tm2.user_id = id
+    )
+  );
 
 drop policy if exists "profiles are readable by owner" on public.profiles;
 create policy "profiles are readable by owner"
@@ -82,17 +145,29 @@ create policy "profiles are updateable by owner"
 revoke update (plan, stripe_customer_id, stripe_subscription_id) on public.profiles from authenticated;
 grant update (email, full_name) on public.profiles to authenticated;
 
-drop policy if exists "generations are owned by user" on public.generations;
-create policy "generations are owned by user"
+drop policy if exists "generations are owned by user or team" on public.generations;
+create policy "generations are owned by user or team"
   on public.generations for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (
+    auth.uid() = user_id or 
+    (team_id is not null and exists (select 1 from public.team_members where team_id = public.generations.team_id and user_id = auth.uid()))
+  )
+  with check (
+    auth.uid() = user_id or 
+    (team_id is not null and exists (select 1 from public.team_members where team_id = public.generations.team_id and user_id = auth.uid()))
+  );
 
-drop policy if exists "exports are owned by user" on public.exports;
-create policy "exports are owned by user"
+drop policy if exists "exports are owned by user or team" on public.exports;
+create policy "exports are owned by user or team"
   on public.exports for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (
+    auth.uid() = user_id or 
+    (team_id is not null and exists (select 1 from public.team_members where team_id = public.exports.team_id and user_id = auth.uid()))
+  )
+  with check (
+    auth.uid() = user_id or 
+    (team_id is not null and exists (select 1 from public.team_members where team_id = public.exports.team_id and user_id = auth.uid()))
+  );
 
 drop policy if exists "usage is readable by owner" on public.usage_daily;
 create policy "usage is readable by owner"

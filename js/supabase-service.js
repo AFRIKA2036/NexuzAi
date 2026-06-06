@@ -158,15 +158,133 @@ async function getSupabaseAccessToken() {
   return data.session?.access_token || null;
 }
 
+async function fetchTeamContext() {
+  if (!supabaseState.ready || !state.user?.id) return null;
+
+  // Find teams where user is either an owner or a member
+  const { data: teams, error } = await supabaseState.client
+    .from('teams')
+    .select('*, team_members!inner(role)')
+    .eq('team_members.user_id', state.user.id);
+
+  if (error) {
+    console.error('Error fetching team context:', error);
+    return null;
+  }
+  
+  return teams?.[0] || null;
+}
+
+async function fetchTeamMembers(teamId) {
+  if (!supabaseState.ready || !teamId) return [];
+
+  const { data, error } = await supabaseState.client
+    .from('team_members')
+    .select('role, profiles(id, email, full_name)')
+    .eq('team_id', teamId);
+
+  if (error) {
+    console.error('Error fetching team members:', error);
+    return [];
+  }
+
+  return data.map(m => ({
+    id: m.profiles.id,
+    name: m.profiles.full_name,
+    email: m.profiles.email,
+    role: m.role,
+    joined: '' // Joined date not in team_members yet, could add if needed
+  }));
+}
+
+async function addTeamMemberByEmail(teamId, email, role = 'member') {
+  if (!supabaseState.ready || !teamId) return;
+
+  // 1. Find user by email (requires profile to be readable)
+  const { data: profile, error: findError } = await supabaseState.client
+    .from('profiles')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (findError || !profile) {
+    throw new Error(findError?.message || `User with email ${email} not found.`);
+  }
+
+  // 2. Insert into team_members
+  const { error: insertError } = await supabaseState.client
+    .from('team_members')
+    .insert({ team_id: teamId, user_id: profile.id, role });
+
+  if (insertError) throw insertError;
+}
+
+async function removeTeamMemberFromDb(teamId, userId) {
+  if (!supabaseState.ready || !teamId) return;
+
+  const { error } = await supabaseState.client
+    .from('team_members')
+    .delete()
+    .eq('team_id', teamId)
+    .eq('user_id', userId);
+
+  if (error) throw error;
+}
+
+async function fetchSharedDocuments(teamId) {
+  if (!supabaseState.ready || !teamId) return [];
+
+  const { data, error } = await supabaseState.client
+    .from('generations')
+    .select('*, profiles(full_name, email)')
+    .eq('team_id', teamId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching shared docs:', error);
+    return [];
+  }
+
+  return data.map(d => ({
+    id: d.id,
+    name: `Team-${d.agent_id}-${d.id.slice(0, 4)}.txt`,
+    creator: d.profiles?.full_name || d.profiles?.email || 'Unknown',
+    size: `${Math.ceil(d.output.length / 1024)} KB`,
+    date: d.created_at.slice(0, 10),
+    content: d.output
+  }));
+}
+
+async function shareToTeamWorkspaceDb(teamId, agentId, prompt, output) {
+  if (!supabaseState.ready || !state.user?.id || !teamId) return;
+
+  const { error } = await supabaseState.client.from('generations').insert({
+    user_id: state.user.id,
+    team_id: teamId,
+    agent_id: agentId,
+    prompt: typeof prompt === 'string' ? prompt : JSON.stringify(prompt),
+    output,
+    output_format: 'text'
+  });
+
+  if (error) throw error;
+}
+
 async function saveGenerationRecord(agentId, prompt, output) {
   if (!supabaseState.ready || !state.user?.id || !output) return;
+  
+  // If we are using the Cloud Proxy, the Edge Function already saves the generation.
+  // We only save manually if it's NOT the cloud proxy (e.g. local proxy).
   if (window.CONFIG?.proxyUrl?.includes('/functions/v1/ai-generate')) return;
 
+  // We could also check if the user is in a team and auto-share if desired,
+  // but usually sharing to workspace is an explicit action.
   await supabaseState.client.from('generations').insert({
     user_id: state.user.id,
     agent_id: agentId,
-    prompt,
+    prompt: typeof prompt === 'string' ? prompt : JSON.stringify(prompt),
     output,
     output_format: 'text'
   });
 }
+

@@ -1794,7 +1794,20 @@ function switchTeamTab(tabId) {
 }
 
 // --- INIT DATA ---
-function initTeamHub() {
+async function initTeamHub() {
+  if (supabaseState.ready && state.user) {
+    const team = await fetchTeamContext();
+    if (team) {
+      state.currentTeam = team;
+      state.teamMembers = await fetchTeamMembers(team.id);
+      state.teamDocuments = await fetchSharedDocuments(team.id);
+    } else if (state.plan === 'team' || state.verificationMode) {
+      // In production, we might auto-create a team for a team plan owner here
+      // if one doesn't exist.
+      console.log("Team context not found.");
+    }
+  }
+
   renderSeats();
   renderWorkspace();
   renderAnalytics();
@@ -1809,20 +1822,23 @@ function renderSeats() {
   tbody.innerHTML = '';
   state.teamMembers.forEach(member => {
     const tr = document.createElement('tr');
+    const isOwner = state.currentTeam?.owner_id === member.id;
+    const canRemove = state.currentTeam?.owner_id === state.user?.id && !isOwner;
+
     tr.innerHTML = `
       <td>
         <div class="member-info">
-          <div class="member-avatar">${member.name.split(' ').map(n => n[0]).join('')}</div>
+          <div class="member-avatar">${(member.name || 'U').split(' ').map(n => n[0]).join('')}</div>
           <div>
-            <div class="member-name">${member.name}</div>
+            <div class="member-name">${member.name || 'User'} ${isOwner ? '<span style="font-size:0.7rem; color:var(--accent)">[OWNER]</span>' : ''}</div>
             <div style="font-size:0.75rem; color:var(--text3);">${member.email}</div>
           </div>
         </div>
       </td>
       <td><span class="badge ${member.role}">${member.role}</span></td>
-      <td>${member.joined}</td>
+      <td>${member.joined || 'Active'}</td>
       <td style="text-align: right;">
-        <button class="btn-danger" onclick="removeTeamMember(${member.id})">Remove</button>
+        ${canRemove ? `<button class="btn-danger" onclick="removeTeamMember('${member.id}')">Remove</button>` : ''}
       </td>
     `;
     tbody.appendChild(tr);
@@ -1842,8 +1858,14 @@ function renderSeats() {
   }
 }
 
-function addTeamMember(e) {
+async function addTeamMember(e) {
   e.preventDefault();
+  
+  if (!state.currentTeam) {
+    showToast('⚠ No active team found to add members to.');
+    return;
+  }
+
   if (state.teamMembers.length >= 10) {
     showToast('⚠ Seat limit reached! Your plan supports up to 10 seats.');
     return;
@@ -1853,30 +1875,38 @@ function addTeamMember(e) {
   const role = document.getElementById('newMemberRole').value;
   if (!email) return;
 
-  const name = email.split('@')[0].split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  const newMember = {
-    id: Date.now(),
-    name,
-    email,
-    role,
-    joined: new Date().toISOString().split('T')[0]
-  };
-
-  state.teamMembers.push(newMember);
-  localStorage.setItem('nexuz_team_members', JSON.stringify(state.teamMembers));
-  renderSeats();
-  renderAnalytics();
-  showToast(`✓ Added ${name} to team seats.`);
-  document.getElementById('newMemberEmail').value = '';
+  try {
+    showToast('⟳ Adding member...');
+    await addTeamMemberByEmail(state.currentTeam.id, email, role);
+    
+    // Refresh list
+    state.teamMembers = await fetchTeamMembers(state.currentTeam.id);
+    renderSeats();
+    renderAnalytics();
+    
+    showToast(`✓ Added ${email} to team seats.`);
+    document.getElementById('newMemberEmail').value = '';
+  } catch (err) {
+    console.error("Add Member Error:", err);
+    showToast(`❌ ${err.message || 'Could not add member'}`);
+  }
 }
 
 // Remove member function
-function removeTeamMember(id) {
-  state.teamMembers = state.teamMembers.filter(m => m.id !== id);
-  localStorage.setItem('nexuz_team_members', JSON.stringify(state.teamMembers));
-  renderSeats();
-  renderAnalytics();
-  showToast('✓ Member seat removed.');
+async function removeTeamMember(userId) {
+  if (!state.currentTeam) return;
+
+  try {
+    showToast('⟳ Removing member...');
+    await removeTeamMemberFromDb(state.currentTeam.id, userId);
+    
+    state.teamMembers = state.teamMembers.filter(m => m.id !== userId);
+    renderSeats();
+    renderAnalytics();
+    showToast('✓ Member seat removed.');
+  } catch (err) {
+    showToast(`❌ ${err.message || 'Could not remove member'}`);
+  }
 }
 
 // --- SHARED WORKSPACE ---
@@ -1898,9 +1928,11 @@ function renderWorkspace() {
       <td>${doc.size}</td>
       <td>${doc.date}</td>
       <td style="text-align: right; white-space: nowrap;">
-        <button class="btn-secondary" onclick="viewSharedDoc(${doc.id})" style="margin-right:0.4rem;">View</button>
-        <button class="btn-secondary" onclick="downloadSharedDoc(${doc.id})" style="margin-right:0.4rem;">Download</button>
-        <button class="btn-danger" onclick="removeSharedDoc(${doc.id})">Delete</button>
+        <button class="btn-secondary" onclick="viewSharedDoc('${doc.id}')" style="margin-right:0.4rem;">View</button>
+        <button class="btn-secondary" onclick="downloadSharedDoc('${doc.id}')" style="margin-right:0.4rem;">Download</button>
+        ${(state.currentTeam?.owner_id === state.user?.id || doc.creator === state.user?.name) 
+          ? `<button class="btn-danger" onclick="removeSharedDoc('${doc.id}')">Delete</button>` 
+          : ''}
       </td>
     `;
     tbody.appendChild(tr);
@@ -1910,7 +1942,7 @@ function renderWorkspace() {
   if (countEl) countEl.textContent = `${state.teamDocuments.length} Documents Shared`;
 }
 
-function shareToTeamWorkspace() {
+async function shareToTeamWorkspace() {
   if (!state.output) {
     showToast('⚠ No output generated to share!');
     return;
@@ -1923,24 +1955,28 @@ function shareToTeamWorkspace() {
     return;
   }
 
-  const agent = AGENTS[state.currentAgent] || { title: 'AI Output' };
-  const email = state.user?.email || 'admin@company.com';
-  const sizeKb = Math.ceil(state.output.length / 1024);
+  if (!state.currentTeam) {
+    showToast('⚠ You are not part of a team workspace.');
+    return;
+  }
 
-  const newDoc = {
-    id: Date.now(),
-    name: `Team-${agent.title.replace(/\s+/g, '-')}-${Date.now().toString().slice(-4)}.txt`,
-    creator: email,
-    size: `${sizeKb} KB`,
-    date: new Date().toISOString().split('T')[0],
-    content: state.output
-  };
+  try {
+    showToast('⟳ Sharing to workspace...');
+    const agent = AGENTS[state.currentAgent] || { title: 'AI Output' };
+    const prompt = AGENTS[state.currentAgent]?.lastFields || "Manual Share";
 
-  state.teamDocuments.push(newDoc);
-  localStorage.setItem('nexuz_team_docs', JSON.stringify(state.teamDocuments));
-  showToast('🎉 Document shared to team workspace!');
-  renderWorkspace();
+    await shareToTeamWorkspaceDb(state.currentTeam.id, state.currentAgent, prompt, state.output);
+    
+    // Refresh list
+    state.teamDocuments = await fetchSharedDocuments(state.currentTeam.id);
+    renderWorkspace();
+    showToast('🎉 Document shared to team workspace!');
+  } catch (err) {
+    console.error("Share Error:", err);
+    showToast(`❌ ${err.message || 'Could not share document'}`);
+  }
 }
+
 
 function viewSharedDoc(id) {
   const doc = state.teamDocuments.find(d => d.id === id);
@@ -1981,7 +2017,27 @@ function downloadSharedDoc(id) {
   showToast('✓ File downloaded successfully.');
 }
 
-function removeSharedDoc(id) {
+async function removeSharedDoc(id) {
+  if (supabaseState.ready && state.currentTeam) {
+    try {
+      showToast('⟳ Deleting document...');
+      const { error } = await supabaseState.client
+        .from('generations')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      state.teamDocuments = state.teamDocuments.filter(d => d.id !== id);
+      renderWorkspace();
+      renderAnalytics();
+      showToast('✓ Document deleted from team workspace.');
+    } catch (err) {
+      showToast(`❌ ${err.message || 'Could not delete document'}`);
+    }
+    return;
+  }
+
   state.teamDocuments = state.teamDocuments.filter(d => d.id !== id);
   localStorage.setItem('nexuz_team_docs', JSON.stringify(state.teamDocuments));
   renderWorkspace();
