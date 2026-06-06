@@ -1,0 +1,31 @@
+project_id = "onanhpeqttqdruruemwr"
+
+[api]
+port = 54321
+external_url = "http://localhost:54321"
+
+[db]
+port = 54322
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://your-app.vercel.app"]
+
+[functions.ai-generate]
+verify_jwt = false
+
+[functions.admin-dashboard]
+verify_jwt = true
+
+[functions.paystack-initialize]
+verify_jwt = true
+
+[functions.paystack-verify]
+verify_jwt = true
+
+[functions.paystack-webhook]
+verify_jwt = false
