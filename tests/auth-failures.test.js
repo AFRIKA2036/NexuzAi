@@ -4,46 +4,49 @@ const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 
-function setupAuthContext() {
+function setupAuthContext({ supabaseConfig } = {}) {
   const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'supabase-service.js'), 'utf8');
-  const authCalls = { signUps: [] };
+  const authCalls = { createClients: [], signUps: [] };
   
   const mockSupabase = {
-    createClient: (url, key) => ({
-      auth: {
-        getSession: async () => ({ data: { session: null }, error: null }),
-        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
-        signInWithPassword: async ({ email, password }) => {
-          if (email === 'fail@example.com') return { data: { user: null }, error: { message: 'Invalid login credentials' } };
-          if (email === 'bad-email') return { data: { user: null }, error: { message: 'Unable to validate email' } };
-          return { data: { user: { id: '123', email } }, error: null };
+    createClient: (url, key) => {
+      authCalls.createClients.push({ url, key });
+      return {
+        auth: {
+          getSession: async () => ({ data: { session: null }, error: null }),
+          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+          signInWithPassword: async ({ email, password }) => {
+            if (email === 'fail@example.com') return { data: { user: null }, error: { message: 'Invalid login credentials' } };
+            if (email === 'bad-email') return { data: { user: null }, error: { message: 'Unable to validate email' } };
+            return { data: { user: { id: '123', email } }, error: null };
+          },
+          signUp: async ({ email, password }) => {
+            authCalls.signUps.push({ email, password });
+            if (email === 'exists@example.com') return { data: { user: null }, error: { message: 'User already registered' } };
+            return { data: { user: { id: '456', email } }, error: null };
+          },
+          signOut: async () => ({ error: null })
         },
-        signUp: async ({ email, password }) => {
-          authCalls.signUps.push({ email, password });
-          if (email === 'exists@example.com') return { data: { user: null }, error: { message: 'User already registered' } };
-          return { data: { user: { id: '456', email } }, error: null };
-        },
-        signOut: async () => ({ error: null })
-      },
-      from: (table) => ({
-        select: () => ({
-          eq: () => ({
-            maybeSingle: async () => ({ data: null, error: null })
+        from: (table) => ({
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null })
+            })
+          }),
+          insert: async () => ({ error: null }),
+          update: () => ({
+            eq: async () => ({ error: null })
           })
-        }),
-        insert: async () => ({ error: null }),
-        update: () => ({
-          eq: async () => ({ error: null })
         })
-      })
-    })
+      };
+    }
   };
 
   const context = {
     window: {
       location: { origin: 'http://localhost', pathname: '/' },
       supabase: mockSupabase,
-      NEXUZ_SUPABASE_CONFIG: { url: 'https://test.supabase.co', anonKey: 'test-key' }
+      NEXUZ_SUPABASE_CONFIG: supabaseConfig || { url: 'https://test.supabase.co', anonKey: 'test-key' }
     },
     localStorage: {
       getItem: () => null,
@@ -62,6 +65,17 @@ function setupAuthContext() {
   vm.runInContext(source, context);
   return context;
 }
+
+test('initSupabase does not create a client without an anon key', async () => {
+  const context = setupAuthContext({
+    supabaseConfig: { url: 'https://test.supabase.co', anonKey: '' }
+  });
+
+  const ready = await context.initSupabase();
+
+  assert.strictEqual(ready, false);
+  assert.deepStrictEqual(context.authCalls.createClients, []);
+});
 
 test('supabaseLogin handles wrong passwords/credentials', async () => {
   const context = setupAuthContext();

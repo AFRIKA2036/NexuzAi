@@ -10,8 +10,12 @@ window.supabaseState = supabaseState;
 
 function isSupabaseConfigured() {
   const cfg = window.NEXUZ_SUPABASE_CONFIG || {};
-  const isDefault = !cfg.url || cfg.url.includes('YOUR_SUPABASE') || cfg.url === '';
-  return !isDefault;
+  const url = String(cfg.url || '').trim();
+  const anonKey = String(cfg.anonKey || '').trim();
+  const isMissingUrl = !url || url.includes('{{') || url.includes('YOUR_SUPABASE');
+  const isMissingAnonKey = !anonKey || anonKey.includes('{{') || anonKey.includes('YOUR_SUPABASE');
+
+  return !isMissingUrl && !isMissingAnonKey;
 }
 
 async function initSupabase() {

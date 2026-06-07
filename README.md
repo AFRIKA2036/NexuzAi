@@ -161,7 +161,8 @@ ai-agents-app/
 
 ## 🎨 Tech Stack
 
-- **Pure HTML/CSS/JavaScript** — no frameworks, no build step
+- **
+** — no frameworks, no build step
 - **Google Fonts** — Syne, DM Mono, Instrument Sans
 - **Anthropic Claude API** — AI generation backbone
 - **LocalStorage** — session persistence (no backend required)
