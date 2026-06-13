@@ -1,0 +1,63 @@
+# NexuzAI - Docker Ignore
+# Exclude files not needed for the local proxy container
+
+# Git
+.git
+.gitignore
+
+# Node.js
+node_modules
+package-lock.json
+
+# Frontend source (not needed for proxy)
+css
+js
+index.html
+admin
+docs
+tests
+*.test.js
+
+# Build output
+dist
+
+# Supabase (not needed in container)
+supabase
+*.sql
+
+# CI/CD
+.github
+
+# Environment files (use .env.local for local overrides)
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs
+
+# Model files (mount via volume instead)
+server/models/*.gguf
+server/models/*.bin
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+
+# Documentation
+README.md
+DEPLOY.md
+LICENSE

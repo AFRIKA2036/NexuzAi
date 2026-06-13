@@ -1,0 +1,88 @@
+# NexuzAI Local Proxy - Docker Compose
+# Supports both CPU and GPU (NVIDIA) inference
+# Usage:
+#   CPU only:     docker-compose up --build
+#   GPU (NVIDIA): docker-compose --profile gpu up --build
+
+services:
+  local-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nexuzai-local-proxy
+    ports:
+      - "8000:8000"
+    environment:
+      # Model Configuration
+      - MODEL_PATH=/app/models/google_gemma-4-31B-it-Q4_K_M.gguf
+      # Server Configuration
+      - HOST=0.0.0.0
+      - PORT=8000
+      # Auth Configuration (set to 'true' to require Supabase JWT)
+      - LOCAL_PROXY_REQUIRE_AUTH=false
+      - FREE_DAILY_LIMIT=20
+      # CORS - allow frontend origins
+      - ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,https://your-app.vercel.app
+      # API Keys (REQUIRED for cloud mode - set in .env or here)
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY}
+    volumes:
+      # Mount models directory - place your .gguf file here
+      - ./server/models:/app/models:ro
+      # Optional: Mount .env for local development
+      - ./.env:/app/.env:ro
+    # Resource limits (adjust based on your model size)
+    # 4B model: ~4GB RAM, 8B model: ~8GB RAM, 31B model: ~20GB RAM
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+        reservations:
+          memory: 8G
+    # Restart policy
+    restart: unless-stopped
+    # Health check (also in Dockerfile)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # GPU-enabled version (NVIDIA only)
+  # Enable with: docker-compose --profile gpu up --build
+  local-proxy-gpu:
+    extends:
+      service: local-proxy
+    container_name: nexuzai-local-proxy-gpu
+    profiles:
+      - gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      # Force GPU layers (-1 = all layers on GPU)
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+# Optional: Nginx reverse proxy for production local deployment
+# Uncomment and configure if needed
+#  nginx:
+#    image: nginx:alpine
+#    ports:
+#      - "80:80"
+#      - "443:443"
+#    volumes:
+#      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+#    depends_on:
+#      - local-proxy
+#    restart: unless-stopped
+
+# Networks (optional, for isolation)
+# networks:
+#   default:
+#     name: nexuzai-network

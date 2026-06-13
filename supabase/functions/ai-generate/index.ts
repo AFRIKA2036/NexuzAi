@@ -221,7 +221,7 @@ async function callOpenRouterWithFallbacks(openrouterKey: string, models: string
         'X-Title': 'NexuzAI'
       },
       body: JSON.stringify(providerBody),
-      signal: AbortSignal.timeout(75_000)
+      signal: AbortSignal.timeout(30_000)
     });
 
     const result = await providerResponse.json().catch(() => ({}));
