@@ -127,7 +127,10 @@ async function supabaseLogin(email, password, mode = 'signin') {
     result = await supabaseState.client.auth.signUp({
       email,
       password,
-      options: { data: { full_name: email.split('@')[0] } }
+      options: { 
+        data: { full_name: email.split('@')[0] },
+        emailRedirectTo: window.location.origin
+      }
     });
   } else {
     result = await supabaseState.client.auth.signInWithPassword({ email, password });
