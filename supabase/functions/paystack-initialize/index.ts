@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { logger, generateRequestId } from '../_shared/logger.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,11 +8,20 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  const requestId = generateRequestId();
+  const functionName = 'paystack-initialize';
+  const log = logger;
+
+  log.info('Request started', { requestId, functionName });
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) return json({ success: false, error: 'Unauthorized' }, 401);
+    if (!authHeader?.startsWith('Bearer ')) {
+      log.warn('Missing or invalid Authorization header', { requestId, functionName });
+      return json({ success: false, error: 'Unauthorized' }, 401);
+    }
 
     const supabaseUrl = requiredEnv('SUPABASE_URL');
     const anonKey = requiredEnv('SUPABASE_ANON_KEY');
@@ -20,17 +30,34 @@ Deno.serve(async (req) => {
     });
 
     const { data: userData, error: userError } = await userClient.auth.getUser();
-    if (userError || !userData.user?.email) return json({ success: false, error: 'Unauthorized' }, 401);
+    if (userError || !userData.user?.email) {
+      log.authCheck(requestId, null, false, { error: userError?.message });
+      return json({ success: false, error: 'Unauthorized' }, 401);
+    }
+
+    log.authCheck(requestId, userData.user.id, true);
 
     const { planId, callbackUrl } = await req.json();
     const planKey = String(planId);
-    if (planKey !== 'pro' && planKey !== 'team') throw new Error('Invalid planId');
-    if (!callbackUrl || typeof callbackUrl !== 'string') throw new Error('Missing callbackUrl');
+    if (planKey !== 'pro' && planKey !== 'team') {
+      log.warn('Invalid planId', { requestId, functionName, planId });
+      throw new Error('Invalid planId');
+    }
+    if (!callbackUrl || typeof callbackUrl !== 'string') {
+      log.warn('Missing callbackUrl', { requestId, functionName });
+      throw new Error('Missing callbackUrl');
+    }
     const callback = new URL(callbackUrl);
-    if (!['http:', 'https:'].includes(callback.protocol)) throw new Error('Invalid callbackUrl');
+    if (!['http:', 'https:'].includes(callback.protocol)) {
+      log.warn('Invalid callbackUrl protocol', { requestId, functionName, protocol: callback.protocol });
+      throw new Error('Invalid callbackUrl');
+    }
 
     const paystackSecret = getPaystackSecret();
-    if (!paystackSecret) throw new Error('Paystack Secret Key not configured');
+    if (!paystackSecret) {
+      log.error('Paystack Secret Key not configured', { requestId, functionName });
+      throw new Error('Paystack Secret Key not configured');
+    }
 
     const amounts = {
       pro: 10586, // 105.86 GHS
@@ -68,15 +95,16 @@ Deno.serve(async (req) => {
     const data = await response.json();
 
     if (!response.ok || !data.status) {
-      console.error('Paystack initialization failed:', data);
+      log.error('Paystack initialization failed', { requestId, functionName, data });
       return json({ success: false, error: data.message || 'Payment provider rejected the request' }, 502);
     }
 
     // Return the authorization_url for the redirect
+    log.info('Paystack initialization success', { requestId, functionName, reference: data.data.reference });
     return json({ success: true, url: data.data.authorization_url, reference: data.data.reference });
 
   } catch (err) {
-    console.error('Initialization error:', err);
+    log.requestError(requestId, functionName, err);
     return json({ success: false, error: getErrorMessage(err) }, 400);
   }
 });

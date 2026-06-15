@@ -1,0 +1,201 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+  DENO_VERSION: '2.1'
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter (if available)
+        run: |
+          if [ -f .eslintrc.js ] || [ -f .eslintrc.json ] || [ -f eslint.config.js ]; then
+            npx eslint . --ext .js --max-warnings 0
+          else
+            echo "No ESLint config found — skipping"
+          fi
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          AI_FUNCTION_URL: ${{ secrets.AI_FUNCTION_URL }}
+          PAYSTACK_PUBLIC_KEY: ${{ secrets.PAYSTACK_PUBLIC_KEY }}
+
+      - name: Security audit (npm)
+        run: npm audit --audit-level=high || true
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  backend-python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx ruff mypy pip-audit
+
+      - name: Lint with Ruff
+        run: ruff check .
+
+      - name: Typecheck with mypy (non-blocking)
+        run: mypy local_server.py --ignore-missing-imports || true
+
+      - name: Run tests
+        run: pytest -v test_local_server.py
+
+      - name: Security audit (pip)
+        run: pip-audit --desc || true
+
+  backend-edge-functions:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./supabase/functions
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+
+      - name: Lint Edge Functions
+        run: |
+          for f in */index.ts; do
+            echo "Checking $f..."
+            deno lint "$f" || true
+          done
+          deno lint _shared/ || true
+
+      - name: Typecheck Edge Functions
+        run: |
+          for f in */index.ts; do
+            echo "Typechecking $f..."
+            deno check "$f" --allow-import=jsr:,esm:,https: || true
+          done
+
+      - name: Run Edge Function tests
+        run: |
+          deno test --allow-import=jsr:,esm:,https: --allow-net --allow-env ./ai-generate/index.test.ts
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (CPU)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: nexuzai-local-proxy:test
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test Docker health endpoint
+        run: |
+          docker run -d --name test-proxy -p 8000:8000 \
+            -e LOCAL_PROXY_REQUIRE_AUTH=*** \
+            -e OPENROUTER_API_KEY=*** \
+            -e NVIDIA_API_KEY=*** \
+            nexuzai-local-proxy:test
+          sleep 15
+          curl -f http://localhost:8000/health || (docker logs test-proxy && exit 1)
+          docker stop test-proxy && docker rm test-proxy
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'HIGH,CRITICAL'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  deploy-vercel:
+    needs: [frontend, backend-python, backend-edge-functions, docker-build, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          working-directory: ./

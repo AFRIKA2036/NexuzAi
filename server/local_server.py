@@ -65,7 +65,9 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-LOCAL_PROXY_REQUIRE_AUTH = os.getenv("LOCAL_PROXY_REQUIRE_AUTH", "false").lower() not in {"0", "false", "no"}
+LOCAL_PROXY_REQUIRE_AUTH = os.getenv("LOCAL_PROXY_REQUIRE_AUTH", "true").lower() not in {"0", "false", "no"}
+# Default to require auth in production; only disable with explicit LOCAL_PROXY_REQUIRE_AUTH=false+dev
+# SECURITY: In production, this MUST be true. The dev default is now secure.
 # Default to allow all in development if no origins specified
 origins_env = os.getenv("ALLOWED_ORIGINS", "")
 ALLOWED_ORIGINS = [o.strip() for o in origins_env.split(",") if o.strip()] if origins_env else ["*"]
@@ -97,7 +99,7 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://*.supabase.co; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: https://*.supabase.co; connect-src 'self' http://localhost:8000 https://*.supabase.co https://api.paystack.co https://openrouter.ai https://integrate.api.nvidia.com; frame-ancestors 'none';"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://*.supabase.co; style-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: https://*.supabase.co; connect-src 'self' http://localhost:8000 https://*.supabase.co https://api.paystack.co https://openrouter.ai https://integrate.api.nvidia.com; frame-ancestors 'none';"
     return response
 
 # Model Pool for Routing with Fallbacks (Verified May 2026)

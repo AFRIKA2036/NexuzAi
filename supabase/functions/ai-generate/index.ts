@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { logger, generateRequestId } from '../_shared/logger.ts';
 
 const FREE_DAILY_LIMIT = 20;
 const MAX_BODY_BYTES = 250_000;
@@ -24,25 +25,37 @@ const ALLOWED_AGENTS = new Set([
 
 Deno.serve(async (req) => {
   const startTime = Date.now();
-  const requestId = crypto.randomUUID();
+  const requestId = generateRequestId();
+  const functionName = 'ai-generate';
+  const log = logger;
   const cors = getCors(req);
+
+  log.info('Request started', { requestId, functionName });
 
   try {
     // Always respond to preflight immediately
     if (req.method === 'OPTIONS') return new Response('ok', { headers: cors.headers });
 
     if (!cors.allowed) {
+      log.warn('Origin not allowed', { requestId, functionName, origin: req.headers.get('Origin') });
       return json({ error: 'Origin is not allowed', requestId }, 403, cors.headers);
     }
-    if (req.method !== 'POST') return json({ error: 'Method not allowed', requestId }, 405, cors.headers);
+    if (req.method !== 'POST') {
+      log.warn('Method not allowed', { requestId, functionName, method: req.method });
+      return json({ error: 'Method not allowed', requestId }, 405, cors.headers);
+    }
 
     const contentLength = Number(req.headers.get('content-length') || '0');
     if (contentLength > MAX_BODY_BYTES) {
+      log.warn('Request too large', { requestId, functionName, contentLength, max: MAX_BODY_BYTES });
       return json({ error: 'Request is too large', requestId }, 413, cors.headers);
     }
 
     const authHeader = req.headers.get('Authorization') || '';
-    if (!authHeader.startsWith('Bearer ')) return json({ error: 'Unauthorized', requestId }, 401, cors.headers);
+    if (!authHeader.startsWith('Bearer ')) {
+      log.warn('Missing or invalid Authorization header', { requestId, functionName });
+      return json({ error: 'Unauthorized', requestId }, 401, cors.headers);
+    }
 
     const supabaseUrl = requiredEnv('SUPABASE_URL');
     const anonKey = requiredEnv('SUPABASE_ANON_KEY');
@@ -54,18 +67,29 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceKey);
 
     const { data: userData, error: userError } = await userClient.auth.getUser();
-    if (userError || !userData.user) return json({ error: 'Unauthorized', requestId }, 401, cors.headers);
+    if (userError || !userData.user) {
+      log.authCheck(requestId, null, false, { error: userError?.message });
+      return json({ error: 'Unauthorized', requestId }, 401, cors.headers);
+    }
+
+    log.authCheck(requestId, userData.user.id, true);
 
     const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
-    if (!openrouterKey) return json({ error: 'AI provider is not configured', requestId }, 500, cors.headers);
+    if (!openrouterKey) {
+      log.error('AI provider not configured', { requestId, functionName });
+      return json({ error: 'AI provider is not configured', requestId }, 500, cors.headers);
+    }
 
     const body = await req.json();
     const validation = validateRequestBody(body);
-    if (!validation.ok) return json({ error: validation.error, requestId }, 400, cors.headers);
+    if (!validation.ok) {
+      log.warn('Request validation failed', { requestId, functionName, error: validation.error });
+      return json({ error: validation.error, requestId }, 400, cors.headers);
+    }
 
     const usage = await consumeDailyUsage(userClient, admin, userData.user.id, requestId);
     if (!usage?.allowed) {
-      console.warn('[OBSERVABILITY] limit reached', { requestId, userId: userData.user.id, count: usage?.request_count });
+      log.usageCheck(requestId, userData.user.id, false, usage?.request_count ?? FREE_DAILY_LIMIT, FREE_DAILY_LIMIT);
       return json({
         error: 'Free daily limit reached',
         requestId,
@@ -74,37 +98,37 @@ Deno.serve(async (req) => {
       }, 429, cors.headers);
     }
 
+    log.usageCheck(requestId, userData.user.id, true, usage?.request_count ?? 0, FREE_DAILY_LIMIT);
+
     const defaultModels = getConfiguredModels();
 
     const requestedModels = body.model && body.model !== 'auto'
       ? (Array.isArray(body.model) ? body.model : [body.model])
       : defaultModels;
 
-    const providerResult = await callOpenRouterWithFallbacks(openrouterKey, requestedModels, body);
+    const providerResult = await callOpenRouterWithFallbacks(openrouterKey, requestedModels, body, requestId, log);
     const result = providerResult.result;
     const latency = Date.now() - startTime;
 
     if (!providerResult.ok) {
       const providerError = getProviderErrorMessage(result);
-      console.error('[OBSERVABILITY] provider error', { 
-        requestId, 
-        userId: userData.user.id, 
-        status: providerResult.status, 
+      log.providerError(requestId, providerResult.attemptedModels[0], new Error(providerError), {
+        status: providerResult.status,
         latency,
-        attemptedModels: providerResult.attemptedModels,
-        result 
+        attemptedModels: providerResult.attemptedModels
       });
       return json({ error: `AI provider request failed: ${providerError}`, requestId }, providerResult.status, cors.headers);
     }
 
     const output = result.choices?.[0]?.message?.content || '';
     if (!output.trim()) {
-      console.error('[OBSERVABILITY] empty provider response', { requestId, userId: userData.user.id, result });
+      log.error('Empty provider response', { requestId, userId: userData.user.id, result });
       return json({ error: 'AI provider returned an empty response', requestId }, 502, cors.headers);
     }
     const usageData = result.usage || {};
 
-    console.info('[OBSERVABILITY] generation success', {
+    log.providerSuccess(requestId, result.model || providerResult.model, latency, usageData);
+    log.info('Generation success', {
       requestId,
       userId: userData.user.id,
       agentId: body.agent_id,
@@ -125,29 +149,26 @@ Deno.serve(async (req) => {
       });
 
       if (insertError) {
-        console.error('[OBSERVABILITY] generation insert failed', { requestId, error: insertError.message });
+        log.error('Generation insert failed', { requestId, error: insertError.message });
       }
     }
 
+    log.requestEnd(requestId, functionName, latency);
     return json({ ...result, requestId, latency }, 200, cors.headers);
   } catch (err) {
-    console.error('[OBSERVABILITY] unexpected error', { 
-      requestId, 
-      error: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined
-    });
+    log.requestError(requestId, functionName, err);
     return json({ error: 'Unexpected server error', requestId }, 500, cors.headers);
   }
 });
 
-async function consumeDailyUsage(userClient: any, admin: any, userId: string, requestId: string) {
+async function consumeDailyUsage(userClient: any, admin: any, userId: string, requestId: string): Promise<any> {
   const { data: usageRows, error: usageError } = await userClient.rpc('consume_daily_usage', {
     p_limit: FREE_DAILY_LIMIT
   });
 
   if (!usageError) return Array.isArray(usageRows) ? usageRows[0] : usageRows;
 
-  console.error('[OBSERVABILITY] usage rpc failed; using fallback counter', {
+  log.error('Usage RPC failed; using fallback counter', {
     requestId,
     userId,
     error: usageError.message,
@@ -196,13 +217,15 @@ async function consumeDailyUsage(userClient: any, admin: any, userId: string, re
   return { allowed: true, request_count: nextCount, plan };
 }
 
-async function callOpenRouterWithFallbacks(openrouterKey: string, models: string[], body: Record<string, unknown>): Promise<any> {
+async function callOpenRouterWithFallbacks(openrouterKey: string, models: string[], body: Record<string, unknown>, requestId: string, log: typeof logger): Promise<any> {
   const attemptedModels: string[] = [];
   let lastStatus = 502;
   let lastResult: Record<string, unknown> = { error: 'No models configured' };
 
   for (const model of models.map((value) => String(value).trim()).filter(Boolean)) {
     attemptedModels.push(model);
+
+    log.providerCall(requestId, model, attemptedModels.length);
 
     const providerBody = {
       model,
@@ -237,6 +260,8 @@ async function callOpenRouterWithFallbacks(openrouterKey: string, models: string
 
     lastStatus = providerResponse.status;
     lastResult = result;
+
+    log.providerError(requestId, model, new Error(`HTTP ${providerResponse.status}`), { status: providerResponse.status });
 
     if (![400, 404, 429, 500, 502, 503, 504].includes(providerResponse.status)) break;
   }
