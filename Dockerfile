@@ -4,9 +4,9 @@
 
 FROM python:3.11-slim
 
-# Install system dependencies for llama-cpp-python
-# libgomp1 for OpenMP, nvidia-container-toolkit for GPU
+# Install build tools + runtime dependencies for llama-cpp-python
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     libgomp1 \
     curl \
     ca-certificates \
@@ -19,7 +19,6 @@ WORKDIR /app
 COPY server/requirements.txt .
 
 # Install Python dependencies
-# Use --no-cache-dir to reduce image size
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
@@ -47,5 +46,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the server
-# Use exec form for proper signal handling
 CMD ["python", "-m", "uvicorn", "server.local_server:app", "--host", "0.0.0.0", "--port", "8000"]
