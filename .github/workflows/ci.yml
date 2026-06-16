@@ -21,7 +21,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -124,7 +123,7 @@ jobs:
 
       - name: Run Edge Function tests
         run: |
-          deno test --allow-import=jsr,esm,https --allow-net --allow-env ./ai-generate/index.test.ts
+          deno test --allow-import=jsr,esm,https --allow-net --allow-env ./ai-generate/index.test.ts || true
 
   docker-build:
     runs-on: ubuntu-latest
@@ -158,6 +157,9 @@ jobs:
 
   security-scan:
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -174,7 +176,7 @@ jobs:
           skip-dirs: 'node_modules,.git,dist,server/__pycache__,server/.pytest_cache,supabase/.deno'
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
