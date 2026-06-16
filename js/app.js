@@ -13,6 +13,35 @@ const state = {
   verificationMode: false // Disabled for production
 };
 
+// ─── GLOBAL FUNCTION EXPORTS (Expose for HTML onclick) ──────
+// Assigned early to ensure buttons work even if init partially fails
+window.acceptCookies = acceptCookies;
+window.closeCookieBanner = closeCookieBanner;
+window.openAgent = openAgent;
+window.checkPro = checkPro;
+window.selectPlan = selectPlan;
+window.closeModal = closeModal;
+window.copyOutput = copyOutput;
+window.shareToTeamWorkspace = shareToTeamWorkspace;
+window.downloadOutput = downloadOutput;
+window.closePaymentModal = closePaymentModal;
+window.initPaystackPayment = initPaystackPayment;
+window.closeLoginModal = closeLoginModal;
+window.handleLogin = handleLogin;
+window.handleOAuth = handleOAuth;
+window.logout = logout;
+window.runAgent = runAgent;
+window.showDemoOutput = showDemoOutput;
+window.openPaymentModal = openPaymentModal;
+window.switchTeamTab = switchTeamTab;
+window.addTeamMember = addTeamMember;
+window.removeTeamMember = removeTeamMember;
+window.viewSharedDoc = viewSharedDoc;
+window.downloadSharedDoc = downloadSharedDoc;
+window.removeSharedDoc = removeSharedDoc;
+window.selectPaymentPlan = selectPaymentPlan;
+window.submitSupportTicket = submitSupportTicket;
+
 // ─── API CONFIG ───────────────────────────────
 const CONFIG = {
   useLocal: false, // Default: use Cloud Mode (Supabase edge function)
@@ -30,74 +59,87 @@ function isLocalProxyUrl(url) {
 
 // ─── INIT ─────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  await initSupabase();
-  updateNavForAuth();
-  addLocalToggle();
-  await autoDetectMode(); // Auto-pick local vs cloud based on server availability
-  checkServerHealth();
-  handlePaymentCallback(); // Check if we returned from Paystack
-  checkCookieConsent(); // COMPLIANCE: Check for cookie banner
-  setInterval(checkServerHealth, 30000); // Check health every 30s
+  try {
+    console.log("NexuzAI Initializing...");
+    await initSupabase();
+    updateNavForAuth();
+    addLocalToggle();
+    await autoDetectMode(); // Auto-pick local vs cloud based on server availability
+    checkServerHealth();
+    handlePaymentCallback(); // Check if we returned from Paystack
+    checkCookieConsent(); // COMPLIANCE: Check for cookie banner
+    setInterval(checkServerHealth, 30000); // Check health every 30s
 
-  // Smooth scroll for anchors
-  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-      const href = this.getAttribute('href');
-      if (href === '#' || href === '#team-hub') return; // Handled by routing
-      
-      e.preventDefault();
-      
-      // Update hash to trigger handleRouting
-      if (window.location.hash !== href) {
-        window.location.hash = href;
-      } else {
-        // If hash is same, just scroll
-        const target = document.querySelector(href);
-        if (target) target.scrollIntoView({ behavior: 'smooth' });
-      }
+    // Smooth scroll for anchors
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        const href = this.getAttribute('href');
+        if (href === '#' || href === '#team-hub') return; // Handled by routing
+        
+        e.preventDefault();
+        
+        // Update hash to trigger handleRouting
+        if (window.location.hash !== href) {
+          window.location.hash = href;
+        } else {
+          // If hash is same, just scroll
+          const target = document.querySelector(href);
+          if (target) target.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
     });
-  });
 
-  // Hamburger menu
-  document.getElementById('hamburger').addEventListener('click', () => {
-    const links = document.querySelector('.nav-links');
-    links.style.display = links.style.display === 'flex' ? 'none' : 'flex';
-    links.style.flexDirection = 'column';
-    links.style.position = 'absolute';
-    links.style.top = '60px';
-    links.style.right = '1rem';
-    links.style.background = 'var(--bg3)';
-    links.style.padding = '1rem';
-    links.style.borderRadius = 'var(--radius)';
-    links.style.border = '1px solid var(--border)';
-  });
-
-  // Login button
-  document.getElementById('loginBtn').addEventListener('click', (e) => {
-    e.preventDefault();
-    if (state.user) {
-      logout();
-    } else {
-      openLoginModal();
+    // Hamburger menu
+    const hamburger = document.getElementById('hamburger');
+    if (hamburger) {
+      hamburger.addEventListener('click', () => {
+        const links = document.querySelector('.nav-links');
+        if (links) {
+          links.style.display = links.style.display === 'flex' ? 'none' : 'flex';
+          links.style.flexDirection = 'column';
+          links.style.position = 'absolute';
+          links.style.top = '60px';
+          links.style.right = '1rem';
+          links.style.background = 'var(--bg3)';
+          links.style.padding = '1rem';
+          links.style.borderRadius = 'var(--radius)';
+          links.style.border = '1px solid var(--border)';
+        }
+      });
     }
-  });
 
-  // Card formatting
-  const cardInput = document.getElementById('payCard');
-  if (cardInput) {
-    cardInput.addEventListener('input', (e) => {
-      let v = e.target.value.replace(/\D/g, '').substring(0, 16);
-      e.target.value = v.replace(/(.{4})/g, '$1 ').trim();
-    });
-  }
+    // Login button
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) {
+      loginBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (state.user) {
+          logout();
+        } else {
+          openLoginModal();
+        }
+      });
+    }
 
-  const expiryInput = document.getElementById('payExpiry');
-  if (expiryInput) {
-    expiryInput.addEventListener('input', (e) => {
-      let v = e.target.value.replace(/\D/g, '');
-      if (v.length >= 2) v = v.substring(0,2) + '/' + v.substring(2,4);
-      e.target.value = v;
-    });
+    // Card formatting
+    const cardInput = document.getElementById('payCard');
+    if (cardInput) {
+      cardInput.addEventListener('input', (e) => {
+        let v = e.target.value.replace(/\D/g, '').substring(0, 16);
+        e.target.value = v.replace(/(.{4})/g, '$1 ').trim();
+      });
+    }
+
+    const expiryInput = document.getElementById('payExpiry');
+    if (expiryInput) {
+      expiryInput.addEventListener('input', (e) => {
+        let v = e.target.value.replace(/\D/g, '');
+        if (v.length >= 2) v = v.substring(0,2) + '/' + v.substring(2,4);
+        e.target.value = v;
+      });
+    }
+  } catch (err) {
+    console.error("Critical Initialization Error:", err);
   }
 });
 
