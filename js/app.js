@@ -219,6 +219,10 @@ async function autoDetectMode() {
     return;
   }
   // Auto-detect based on availability
+  // Skip on production (Vercel) - local proxy won't be available
+  if (CONFIG.healthUrl.startsWith('http://localhost') && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+    return;
+  }
   try {
     const res = await fetch(CONFIG.healthUrl, { signal: AbortSignal.timeout(1500) });
     if (res.ok) {
