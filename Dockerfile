@@ -1,12 +1,11 @@
 # NexuzAI Local Proxy - Dockerfile
-# Runs the FastAPI proxy with llama.cpp for local LLM inference
+# Runs the FastAPI proxy with optional llama.cpp for local LLM inference
 # Supports both CPU and GPU (NVIDIA) inference
 
 FROM python:3.11-slim
 
-# Install build tools + runtime dependencies for llama-cpp-python
+# Install runtime dependencies only (no build tools needed - llama-cpp-python is optional)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
     libgomp1 \
     curl \
     ca-certificates \

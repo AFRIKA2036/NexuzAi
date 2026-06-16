@@ -23,6 +23,31 @@ const ALLOWED_AGENTS = new Set([
   'converter'
 ]);
 
+// Type definitions to replace `any`
+interface SupabaseClient {
+  auth: {
+    getUser(): Promise<{ data: { user: User | null }; error: Error | null }>;
+  };
+  rpc(name: string, params: Record<string, unknown>): Promise<{ data: unknown; error: Error | null }>;
+  from(table: string): SupabaseQueryBuilder;
+}
+interface SupabaseQueryBuilder {
+  select(columns: string): SupabaseQueryBuilder;
+  eq(column: string, value: string): SupabaseQueryBuilder;
+  maybeSingle(): Promise<{ data: unknown; error: Error | null }>;
+  upsert(data: Record<string, unknown>, options?: { onConflict?: string }): Promise<{ error: Error | null }>;
+}
+interface User {
+  id: string;
+  email?: string;
+  app_metadata?: Record<string, unknown>;
+}
+interface UsageResult {
+  allowed: boolean;
+  request_count: number;
+  plan: string;
+}
+
 Deno.serve(async (req) => {
   const startTime = Date.now();
   const requestId = generateRequestId();
@@ -161,7 +186,7 @@ Deno.serve(async (req) => {
   }
 });
 
-async function consumeDailyUsage(userClient: any, admin: any, userId: string, requestId: string): Promise<any> {
+async function consumeDailyUsage(userClient: SupabaseClient, admin: SupabaseClient, userId: string, requestId: string): Promise<UsageResult> {
   const { data: usageRows, error: usageError } = await userClient.rpc('consume_daily_usage', {
     p_limit: FREE_DAILY_LIMIT
   });
@@ -217,7 +242,15 @@ async function consumeDailyUsage(userClient: any, admin: any, userId: string, re
   return { allowed: true, request_count: nextCount, plan };
 }
 
-async function callOpenRouterWithFallbacks(openrouterKey: string, models: string[], body: Record<string, unknown>, requestId: string, log: typeof logger): Promise<any> {
+interface ProviderResult {
+  ok: boolean;
+  status: number;
+  result: Record<string, unknown>;
+  model: string;
+  attemptedModels: string[];
+}
+
+async function callOpenRouterWithFallbacks(openrouterKey: string, models: string[], body: Record<string, unknown>, requestId: string, log: typeof logger): Promise<ProviderResult> {
   const attemptedModels: string[] = [];
   let lastStatus = 502;
   let lastResult: Record<string, unknown> = { error: 'No models configured' };

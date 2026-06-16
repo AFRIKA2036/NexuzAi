@@ -8,7 +8,7 @@ import time
 import httpx
 from typing import List, Optional, Union
 from pydantic import BaseModel, Field, validator
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -296,9 +296,11 @@ async def local_inference_stream(messages, system_prompt):
         await asyncio.sleep(0.5)
         thoughts = ["Establishing secure neural link...", "Processing request parameters...", "Optimizing local resources..."]
         for t in thoughts:
-            yield f"data: {json.dumps({'choices': [{'delta': {'content': t + '\\n'}}]})}\n\n"
+            chunk_text = t + "\n"
+            yield f"data: {json.dumps({'choices': [{'delta': {'content': chunk_text}}]})}\n\n"
             await asyncio.sleep(0.3)
-        yield f"data: {json.dumps({'choices': [{'delta': {'content': '</thought>\\n\\n'}}]})}\n\n"
+        thought_end = "</thought>\n\n"
+        yield f"data: {json.dumps({'choices': [{'delta': {'content': thought_end}}]})}\n\n"
         response = "NexuzAI is currently running in **Offline Mode**. To enable full AI intelligence, please switch to **Cloud Mode** in the navigation bar or ensure the local AI engine is properly configured."
         for word in response.split():
             yield f"data: {json.dumps({'choices': [{'delta': {'content': word + ' '}}]})}\n\n"
@@ -318,7 +320,8 @@ async def openrouter_proxy_stream(body):
         routed_models = route_model(body.get("messages", []))
         if isinstance(routed_models, list):
             body["models"] = routed_models
-            if "model" in body: del body["model"]
+            if "model" in body:
+                del body["model"]
             print(f"Smart Router selected fallbacks: {body['models']}")
         else:
             body["model"] = routed_models
