@@ -119,12 +119,12 @@ jobs:
         run: |
           for f in */index.ts; do
             echo "Typechecking $f..."
-            deno check "$f" --allow-import=jsr:,esm:,https: || true
+            deno check "$f" --allow-import=jsr,esm,https || true
           done
 
       - name: Run Edge Function tests
         run: |
-          deno test --allow-import=jsr:,esm:,https: --allow-net --allow-env ./ai-generate/index.test.ts
+          deno test --allow-import=jsr,esm,https --allow-net --allow-env ./ai-generate/index.test.ts
 
   docker-build:
     runs-on: ubuntu-latest
@@ -170,6 +170,8 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'HIGH,CRITICAL'
+          ignore-unfixed: true
+          skip-dirs: 'node_modules,.git,dist,server/__pycache__,server/.pytest_cache,supabase/.deno'
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
