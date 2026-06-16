@@ -82,7 +82,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof autoDetectMode === 'function') await autoDetectMode();
     
     checkServerHealth();
-    handlePaymentCallback(); 
     checkCookieConsent(); 
     setInterval(checkServerHealth, 30000);
 
@@ -90,14 +89,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
       anchor.addEventListener('click', function (e) {
         const href = this.getAttribute('href');
-        if (href === '#' || href === '#team-hub') return;
-        e.preventDefault();
-        if (window.location.hash !== href) {
-          window.location.hash = href;
-        } else {
-          const target = document.querySelector(href);
-          if (target) target.scrollIntoView({ behavior: 'smooth' });
+        if (href === '#') {
+          e.preventDefault();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
         }
+        if (href === '#team-hub') return;
+        e.preventDefault();
+        const target = document.querySelector(href);
+        if (target) target.scrollIntoView({ behavior: 'smooth' });
+        else if (href !== '#') window.location.hash = href;
       });
     });
 
@@ -184,6 +185,14 @@ function addLocalToggle() {
 async function checkServerHealth() {
   const dot = document.getElementById('serverStatus');
   if (!dot) return;
+  
+  // Skip health check on production (Vercel) - local proxy won't be available
+  if (CONFIG.healthUrl.startsWith('http://localhost') && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+    dot.style.background = '#888';
+    dot.title = 'Server check skipped (production)';
+    return false;
+  }
+  
   try {
     const res = await fetch(CONFIG.healthUrl, { signal: AbortSignal.timeout(3000) });
     if (res.ok) {
