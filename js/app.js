@@ -31,6 +31,7 @@ window.handleLogin = handleLogin;
 window.handleOAuth = handleOAuth;
 window.logout = logout;
 window.runAgent = runAgent;
+window.filterAgents = filterAgents;
 window.showDemoOutput = showDemoOutput;
 window.openPaymentModal = openPaymentModal;
 window.switchTeamTab = switchTeamTab;
@@ -2243,6 +2244,52 @@ function closeCookieBanner() {
   if (banner) banner.classList.remove('show');
 }
 
+function filterAgents() {
+  const query = document.getElementById('agentSearch').value.toLowerCase().trim();
+  const cards = document.querySelectorAll('.agent-card');
+  const grid = document.getElementById('agentsGrid');
+  
+  let found = 0;
+  cards.forEach(card => {
+    const title = card.querySelector('h3').textContent.toLowerCase();
+    const desc = card.querySelector('p').textContent.toLowerCase();
+    
+    if (title.includes(query) || desc.includes(query)) {
+      card.style.display = 'block';
+      found++;
+    } else {
+      card.style.display = 'none';
+    }
+  });
+
+  // Optional: Show "No agents found" message
+  let noResults = document.getElementById('noResultsMessage');
+  if (found === 0) {
+    if (!noResults) {
+      noResults = document.createElement('div');
+      noResults.id = 'noResultsMessage';
+      noResults.style.gridColumn = '1 / -1';
+      noResults.style.textAlign = 'center';
+      noResults.style.padding = '3rem';
+      noResults.style.color = 'var(--text3)';
+      noResults.innerHTML = `
+        <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+        <h3>No agents match "${query}"</h3>
+        <p>Try searching for a different keyword or category.</p>
+      `;
+      grid.appendChild(noResults);
+    } else {
+      noResults.innerHTML = `
+        <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+        <h3>No agents match "${query}"</h3>
+        <p>Try searching for a different keyword or category.</p>
+      `;
+    }
+  } else if (noResults) {
+    noResults.remove();
+  }
+}
+
 // ─── GLOBAL FUNCTION EXPORTS ───────────────────
 // Expose functions used by inline onclick handlers in HTML
 window.acceptCookies = acceptCookies;
@@ -2261,6 +2308,7 @@ window.handleLogin = handleLogin;
 window.handleOAuth = handleOAuth;
 window.logout = logout;
 window.runAgent = runAgent;
+window.filterAgents = filterAgents;
 window.showDemoOutput = showDemoOutput;
 window.openPaymentModal = openPaymentModal;
 window.switchTeamTab = switchTeamTab;
