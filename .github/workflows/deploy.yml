@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch: # Allow manual trigger for debugging
 
 env:
   SUPABASE_CLI_VERSION: 2.101.0
@@ -23,7 +24,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run tests
-        run: npm test
+        run: |
+          npm test || (echo "::error::Tests failed. Check the logs above for details." && exit 1)
       - name: Verify static build
         run: npm run build
 
@@ -32,6 +34,8 @@ jobs:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN || secrets.SUPABASE_TOKEN || secrets.SUPABASE_AUTH_TOKEN || secrets.SUPABASE_PAT }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -43,25 +47,26 @@ jobs:
       - name: Validate Supabase access token
         run: |
           if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
-            echo "::error::Missing Supabase access token secret. Add it as SUPABASE_ACCESS_TOKEN, SUPABASE_TOKEN, SUPABASE_AUTH_TOKEN, or SUPABASE_PAT in this repository's GitHub Actions secrets."
+            echo "::error::Missing Supabase access token secret. Add it as SUPABASE_ACCESS_TOKEN in this repository's GitHub Actions secrets."
             exit 1
           fi
       - name: Deploy public functions
-        run: >
-          supabase functions deploy
-          ai-generate
-          paystack-webhook
-          --project-ref "$SUPABASE_PROJECT_ID"
-          --no-verify-jwt
-          --use-api
+        run: |
+          supabase functions deploy \
+            ai-generate \
+            paystack-webhook \
+            --project-ref "$SUPABASE_PROJECT_ID" \
+            --no-verify-jwt \
+            --use-api || (echo "::error::Public functions deployment failed." && exit 1)
       - name: Deploy protected functions
-        run: >
-          supabase functions deploy
-          admin-dashboard
-          paystack-initialize
-          paystack-verify
-          --project-ref "$SUPABASE_PROJECT_ID"
-          --use-api
+        run: |
+          supabase functions deploy \
+            admin-dashboard \
+            paystack-initialize \
+            paystack-verify \
+            --project-ref "$SUPABASE_PROJECT_ID" \
+            --use-api || (echo "::error::Protected functions deployment failed." && exit 1)
+
       - name: Deploy database migrations
         run: |
           if [ -z "$SUPABASE_DB_PASSWORD" ]; then
