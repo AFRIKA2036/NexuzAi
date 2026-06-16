@@ -2200,3 +2200,32 @@ function closeCookieBanner() {
   const banner = document.getElementById('cookieBanner');
   if (banner) banner.classList.remove('show');
 }
+
+// ─── GLOBAL FUNCTION EXPORTS ───────────────────
+// Expose functions used by inline onclick handlers in HTML
+window.acceptCookies = acceptCookies;
+window.closeCookieBanner = closeCookieBanner;
+window.openAgent = openAgent;
+window.checkPro = checkPro;
+window.selectPlan = selectPlan;
+window.closeModal = closeModal;
+window.copyOutput = copyOutput;
+window.shareToTeamWorkspace = shareToTeamWorkspace;
+window.downloadOutput = downloadOutput;
+window.closePaymentModal = closePaymentModal;
+window.initPaystackPayment = initPaystackPayment;
+window.closeLoginModal = closeLoginModal;
+window.handleLogin = handleLogin;
+window.handleOAuth = handleOAuth;
+window.logout = logout;
+window.runAgent = runAgent;
+window.showDemoOutput = showDemoOutput;
+window.openPaymentModal = openPaymentModal;
+window.switchTeamTab = switchTeamTab;
+window.addTeamMember = addTeamMember;
+window.removeTeamMember = removeTeamMember;
+window.viewSharedDoc = viewSharedDoc;
+window.downloadSharedDoc = downloadSharedDoc;
+window.removeSharedDoc = removeSharedDoc;
+window.selectPaymentPlan = selectPaymentPlan;
+window.submitSupportTicket = submitSupportTicket;

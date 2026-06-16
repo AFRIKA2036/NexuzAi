@@ -184,7 +184,7 @@ const AGENTS = {
     icon: '💻',
     title: 'Code Mentor',
     desc: 'Debug, refactor, and explain complex code logic',
-    tier: 'free', // Set to free for testing as requested
+    tier: 'pro',
     fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'language', label: 'PROGRAMMING LANGUAGE', type: 'input', placeholder: 'e.g. JavaScript, Python, Rust, SQL' },
@@ -215,7 +215,7 @@ const AGENTS = {
     icon: '🤳',
     title: 'Viral Content Creator',
     desc: 'Hooks, scripts, and threads that stop the scroll',
-    tier: 'free',
+    tier: 'pro',
     fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'platform', label: 'PLATFORM', type: 'select', options: ['TikTok / Reels', 'LinkedIn', 'Twitter / X', 'YouTube Shorts', 'Facebook'] },
@@ -240,7 +240,7 @@ const AGENTS = {
     icon: '📝',
     title: 'Meeting Minutes Pro',
     desc: 'Turn messy transcripts into clear action items',
-    tier: 'free',
+    tier: 'pro',
     fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'transcript_file', label: 'UPLOAD TRANSCRIPT (PDF, TXT, DOCX)', type: 'file', accept: '.pdf,.txt,.docx' },
@@ -263,7 +263,7 @@ const AGENTS = {
     icon: '🚀',
     title: 'Startup Architect',
     desc: 'Validate ideas and build your business model',
-    tier: 'free',
+    tier: 'pro',
     fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'idea', label: 'STARTUP IDEA / CONCEPT', type: 'input', placeholder: 'e.g. AI-powered recipe planner for keto athletes' },
@@ -292,7 +292,7 @@ const AGENTS = {
     icon: '🎓',
     title: 'Academic Essay Drafter',
     desc: 'Structure and draft high-quality academic papers',
-    tier: 'free',
+    tier: 'pro',
     fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'topic', label: 'ESSAY TOPIC / PROMPT', type: 'input', placeholder: 'e.g. The Role of Stoicism in Modern Psychology' },
@@ -321,7 +321,7 @@ const AGENTS = {
     icon: '🔄',
     title: 'Universal Code Converter',
     desc: 'Translate code between any programming language',
-    tier: 'free',
+    tier: 'pro',
     fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'source_lang', label: 'SOURCE LANGUAGE', type: 'input', placeholder: 'e.g. C++, Java, PHP' },
