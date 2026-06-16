@@ -152,7 +152,7 @@ const AGENTS = {
     icon: '🔬',
     title: 'Research Architect',
     desc: 'Deep-dive reports with structured analysis & insights',
-    tier: 'free', // Set to free for testing as requested
+    tier: 'pro',
     fallbacks: TASK_MODEL_FALLBACKS,
     fields: [
       { id: 'topic', label: 'RESEARCH TOPIC', type: 'input', placeholder: 'e.g. Impact of AI on Remote Work 2026' },
