@@ -93,12 +93,13 @@ export async function handleAdminDashboard(req: Request) {
     const dashboard = await getDashboardData(admin);
     return json({ ...dashboard, requestId }, 200, cors.headers);
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     console.error("[ADMIN_DASHBOARD] unexpected error", {
       requestId,
-      error: err instanceof Error ? err.message : String(err),
+      error: message,
     });
     return json(
-      { error: "Unexpected server error", requestId },
+      { error: `Server Error: ${message}`, requestId },
       500,
       cors.headers,
     );
