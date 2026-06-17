@@ -69,22 +69,28 @@ function setAuthStatus(message, color = '#94a3b8') {
 }
 
 async function checkAdmin() {
+    console.log('Admin check started. Current URL:', window.location.href);
     if (!isConfigured() || !window.supabase) {
+        console.warn('Supabase not configured or library missing');
         setAuthStatus('Supabase is not configured for this deployment.', '#ef4444');
         if (googleLoginBtn) googleLoginBtn.disabled = true;
         return;
     }
 
     sb = window.supabase.createClient(config.url, config.anonKey);
+    console.log('Supabase client initialized');
     
     // Handle redirect result if any
     const { data: { session }, error } = await sb.auth.getSession();
+    if (error) console.error('Error getting session:', error);
+    if (session) console.log('Session found for user:', session.user.email);
     
     sb.auth.onAuthStateChange(async (_event, session) => {
-        console.log('Auth state change:', _event, session?.user?.email);
+        console.log('Auth state change event:', _event, session?.user?.email);
         if (session) {
             await openDashboardForSession(session);
         } else {
+            console.log('No session, showing login overlay');
             overlay.style.display = 'flex';
             dashboardReady = false;
         }
@@ -94,6 +100,7 @@ async function checkAdmin() {
         setAuthStatus('Verifying admin access...');
         await openDashboardForSession(session);
     } else {
+        console.log('No initial session, showing login overlay');
         overlay.style.display = 'flex';
     }
 }
@@ -138,7 +145,8 @@ if (googleLoginBtn) {
             googleLoginBtn.innerText = 'Redirecting...';
             setAuthStatus('Initiating Google Sign-In...');
             
-            const redirectTo = `${window.location.origin}/admin/index.html`;
+            console.log('Redirecting to Google OAuth...');
+            const redirectTo = window.location.href.split('#')[0].split('?')[0];
             const { error } = await sb.auth.signInWithOAuth({
                 provider: 'google',
                 options: { redirectTo }
