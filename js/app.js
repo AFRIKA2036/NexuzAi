@@ -250,7 +250,8 @@ function updateNavForAuth() {
     if (getStartedBtn) getStartedBtn.style.display = 'none';
 
     const adminMetadata = window.supabaseState?.session?.user?.app_metadata || {};
-    const isAdmin = adminMetadata.is_admin === true || adminMetadata.role === 'admin';
+    const userProvider = window.supabaseState?.session?.user?.app_metadata?.provider || window.supabaseState?.session?.user?.user_metadata?.provider;
+    const isAdmin = (adminMetadata.is_admin === true || adminMetadata.role === 'admin') && userProvider === 'google';
     if (isAdmin) {
       const adminLink = document.createElement('a');
       adminLink.id = 'adminDashboardLink';
@@ -488,12 +489,159 @@ function openPaymentModal(planId) {
   state.currentPlanSelection = planId;
   const title = document.getElementById('paymentTitle');
   if (title) title.textContent = `Upgrade to ${planId.toUpperCase()}`;
+  
+  // Populate payment summary
+  const summary = document.getElementById('paymentSummary');
+  const prices = { pro: { price: 9, period: 'month', name: 'Pro' }, team: { price: 29, period: 'month', name: 'Team' } };
+  const plan = prices[planId] || prices.pro;
+  if (summary) {
+    summary.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem; background:var(--bg3); border-radius:var(--radius); border:1px solid var(--border);">
+        <div>
+          <strong>${plan.name} Plan</strong>
+          <p style="margin:0.25rem 0 0; color:var(--text2); font-size:0.85rem;">$${plan.price}/${plan.period} • Cancel anytime</p>
+        </div>
+        <span style="font-size:1.5rem; font-weight:700; color:var(--accent);">$${plan.price}/${plan.period}</span>
+      </div>
+    `;
+  }
+  
+  // Populate plans
+  const plans = document.getElementById('paymentPlans');
+  if (plans) {
+    plans.innerHTML = `
+      <p style="font-size:0.85rem; color:var(--text2); margin-bottom:0.5rem;">Select payment method</p>
+      <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+        <button type="button" class="pay-method-btn" data-method="card" style="flex:1; min-width:120px; padding:0.75rem; border:1px solid var(--border); background:var(--surface2); border-radius:var(--radius); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.5rem;">
+          💳 Card
+        </button>
+        <button type="button" class="pay-method-btn" data-method="mobile_money" style="flex:1; min-width:120px; padding:0.75rem; border:1px solid var(--border); background:var(--surface2); border-radius:var(--radius); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.5rem;">
+          📱 Mobile Money
+        </button>
+        <button type="button" class="pay-method-btn" data-method="bank" style="flex:1; min-width:120px; padding:0.75rem; border:1px solid var(--border); background:var(--surface2); border-radius:var(--radius); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.5rem;">
+          🏦 Bank Transfer
+        </button>
+      </div>
+    `;
+    
+    // Add click handlers for payment method buttons
+    plans.querySelectorAll('.pay-method-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        plans.querySelectorAll('.pay-method-btn').forEach(b => b.style.borderColor = 'var(--border)');
+        btn.style.borderColor = 'var(--accent)';
+        window.selectedPayMethod = btn.dataset.method;
+      });
+    });
+  }
+  
   document.getElementById('paymentModal')?.classList.add('active');
 }
 
 function selectPlan(id) { 
   if (id === 'free') { showToast('Free plan active'); return; }
   openPaymentModal(id); 
+}
+
+function checkPro(agentId) {
+  if (!state.user) {
+    state.currentAgent = agentId;
+    openLoginModal('signup');
+    showToast('Create an account to access Pro agents');
+    return;
+  }
+  if (state.plan === 'pro' || state.plan === 'team') {
+    openAgent(agentId);
+  } else {
+    openPaymentModal('pro');
+    showToast('Upgrade to Pro to unlock this agent');
+  }
+}
+
+// Initialize Paystack Payment
+function initPaystackPayment() {
+  const btn = document.getElementById('paySubmitBtn');
+  const btnText = document.getElementById('payBtnText');
+  const method = window.selectedPayMethod || 'card';
+  const plan = state.currentPlanSelection || 'pro';
+  const prices = { pro: 900, team: 2900 }; // in cents
+  const amount = prices[plan] || 900;
+  const email = state.user?.email || document.getElementById('loginEmail')?.value;
+  
+  if (!email || !email.includes('@')) {
+    showToast('Please login or enter your email first');
+    closePaymentModal();
+    openLoginModal('signin');
+    return;
+  }
+  
+  if (!btn) return;
+  
+  if (typeof window.PaystackPop === 'undefined') {
+    showToast('Payment gateway loading... please wait');
+    return;
+  }
+  
+  btn.disabled = true;
+  if (btnText) btnText.textContent = 'Redirecting to Paystack...';
+  
+  const handler = window.PaystackPop.setup({
+    key: 'pk_live_XXXXXXXXXXXXXXXXXXXXXXXX', // Replace with your Paystack public key
+    email: email,
+    amount: amount,
+    currency: 'USD',
+    channels: method === 'card' ? ['card'] : method === 'mobile_money' ? ['mobile_money'] : ['bank_transfer'],
+    metadata: {
+      plan: plan,
+      user_id: state.user?.id || email,
+      custom_fields: [
+        { display_name: 'Plan', variable_name: 'plan', value: plan.toUpperCase() }
+      ]
+    },
+    callback: function(response) {
+      // Payment successful - verify with backend
+      showToast('Payment successful! Verifying...');
+      verifyPayment(response.reference, plan);
+    },
+    onClose: function() {
+      showToast('Payment cancelled');
+      btn.disabled = false;
+      if (btnText) btnText.textContent = 'Proceed to Payment';
+    }
+  });
+  handler.openIframe();
+}
+
+// Verify payment with backend
+async function verifyPayment(reference, plan) {
+  try {
+    const res = await fetch('/api/verify-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reference, plan })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Upgrade successful! Welcome to ' + plan.toUpperCase());
+      closePaymentModal();
+      // Refresh user plan
+      if (window.supabaseState?.ready && state.user) {
+        await hydrateUserFromSupabase({ 
+          id: state.user.id, 
+          email: state.user.email,
+          user_metadata: {}
+        });
+      }
+    } else {
+      showToast('Payment verification failed: ' + (data.error || 'Unknown error'));
+    }
+  } catch (err) {
+    showToast('Verification error: ' + err.message);
+  } finally {
+    const btn = document.getElementById('paySubmitBtn');
+    const btnText = document.getElementById('payBtnText');
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.textContent = 'Proceed to Payment';
+  }
 }
 
 // ─── SEARCH ───────────────────────────────────
@@ -534,13 +682,15 @@ window.acceptCookies = acceptCookies;
 window.closeCookieBanner = closeCookieBanner;
 window.openAgent = openAgent;
 window.selectPlan = selectPlan;
+window.checkPro = checkPro;
 window.closeModal = closeModal;
 window.handleLogin = handleLogin;
 window.handleOAuth = handleOAuth;
+window.handleForgotPassword = handleForgotPassword;
 window.logout = logout;
 window.runAgent = runAgent;
 window.filterAgents = filterAgents;
 window.openLoginModal = openLoginModal;
-window.initPaystackPayment = () => showToast('Payment service initializing...');
+window.initPaystackPayment = initPaystackPayment;
 window.copyOutput = () => { navigator.clipboard.writeText(state.output); showToast('Copied'); };
 window.downloadOutput = (fmt) => showToast(`Downloading as ${fmt}...`);

@@ -56,6 +56,10 @@ function setupAuthContext({ supabaseConfig } = {}) {
     state: { user: null, plan: 'free' },
     updateNavForAuth: () => {},
     updateProBadges: () => {},
+    document: {
+      querySelectorAll: () => [],
+      getElementById: () => null
+    },
     console: { warn: () => {}, error: () => {}, log: () => {} }
   };
   context.globalThis = context;

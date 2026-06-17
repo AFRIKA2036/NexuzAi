@@ -91,6 +91,24 @@ async function hydrateUserFromSupabase(user) {
   updateProBadges();
 }
 
+function updateProBadges() {
+  // Update pro badges on agent cards
+  document.querySelectorAll('.agent-card[data-tier="pro"] .card-btn').forEach(btn => {
+    if (state.plan === 'pro' || state.plan === 'team') {
+      btn.classList.remove('pro-locked');
+      btn.textContent = 'Launch Agent →';
+      btn.onclick = () => {
+        const agentId = btn.closest('.agent-card').dataset.agent;
+        openAgent(agentId);
+      };
+    } else {
+      btn.classList.add('pro-locked');
+      btn.textContent = 'Upgrade to Pro →';
+      btn.onclick = () => checkPro(btn.closest('.agent-card').dataset.agent);
+    }
+  });
+}
+
 async function ensureSupabaseProfile(user) {
   if (!supabaseState.ready || !user?.id) return;
 

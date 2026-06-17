@@ -35,11 +35,15 @@ function loadApp(fetchImpl) {
       addEventListener() {},
       querySelectorAll() {
         return [];
+      },
+      getElementById() {
+        return null;
       }
     },
     AGENTS: {
       email: { fallbacks: ['test/model'] }
-    }
+    },
+    handleForgotPassword: async () => {}
   });
 
   vm.runInContext(
