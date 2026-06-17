@@ -188,7 +188,8 @@ async function checkServerHealth() {
   
   // Skip health check on production (Vercel) - local proxy won't be available
   if (CONFIG.healthUrl.startsWith('http://localhost') && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
-    dot.style.background = '#888';
+    dot.style.background = '#666';
+    dot.style.opacity = '0.6';
     dot.title = 'Server check skipped (production)';
     return false;
   }
@@ -197,15 +198,18 @@ async function checkServerHealth() {
     const res = await fetch(CONFIG.healthUrl, { signal: AbortSignal.timeout(3000) });
     if (res.ok) {
       const data = await res.json();
-      dot.style.background = '#4af0c8';
+      dot.style.background = '#22c55e';
+      dot.style.opacity = '0.8';
       dot.title = `Server Online (${data.mode || 'Active'})`;
       return true;
     } else {
-      dot.style.background = '#ff6b6b';
+      dot.style.background = '#ef4444';
+      dot.style.opacity = '0.8';
       return false;
     }
   } catch (e) {
-    dot.style.background = '#ff6b6b';
+    dot.style.background = '#ef4444';
+    dot.style.opacity = '0.8';
     return false;
   }
 }
@@ -312,6 +316,29 @@ async function logout() {
   localStorage.removeItem('nexuz_plan');
   updateNavForAuth();
   showToast('Logged out');
+}
+
+async function handleForgotPassword() {
+  const emailInput = document.getElementById('loginEmail');
+  const email = emailInput?.value?.trim();
+  
+  if (!email) {
+    showToast('Please enter your email first');
+    emailInput?.focus();
+    return;
+  }
+  
+  if (!window.supabaseState?.ready) {
+    showToast('Supabase not configured');
+    return;
+  }
+  
+  try {
+    await supabaseForgotPassword(email);
+    showToast(`Password reset email sent to ${email}. Check your inbox.`);
+  } catch (err) {
+    showToast(err.message || 'Failed to send reset email');
+  }
 }
 
 // ─── AGENT MODAL ──────────────────────────────
@@ -492,7 +519,7 @@ function openPaymentModal(planId) {
   
   // Populate payment summary
   const summary = document.getElementById('paymentSummary');
-  const prices = { pro: { price: 9, period: 'month', name: 'Pro' }, team: { price: 29, period: 'month', name: 'Team' } };
+  const prices = { pro: { price: 9, period: 'month', name: 'Pro', amount: 900 }, team: { price: 29, period: 'month', name: 'Team', amount: 2900 } };
   const plan = prices[planId] || prices.pro;
   if (summary) {
     summary.innerHTML = `
@@ -506,32 +533,14 @@ function openPaymentModal(planId) {
     `;
   }
   
-  // Populate plans
+  // Simple paystack checkout button
   const plans = document.getElementById('paymentPlans');
   if (plans) {
     plans.innerHTML = `
-      <p style="font-size:0.85rem; color:var(--text2); margin-bottom:0.5rem;">Select payment method</p>
-      <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
-        <button type="button" class="pay-method-btn" data-method="card" style="flex:1; min-width:120px; padding:0.75rem; border:1px solid var(--border); background:var(--surface2); border-radius:var(--radius); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.5rem;">
-          💳 Card
-        </button>
-        <button type="button" class="pay-method-btn" data-method="mobile_money" style="flex:1; min-width:120px; padding:0.75rem; border:1px solid var(--border); background:var(--surface2); border-radius:var(--radius); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.5rem;">
-          📱 Mobile Money
-        </button>
-        <button type="button" class="pay-method-btn" data-method="bank" style="flex:1; min-width:120px; padding:0.75rem; border:1px solid var(--border); background:var(--surface2); border-radius:var(--radius); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.5rem;">
-          🏦 Bank Transfer
-        </button>
-      </div>
+      <p style="font-size:0.85rem; color:var(--text2); margin-bottom:0.75rem; text-align:center;">
+        Secure checkout via Paystack (Card & Mobile Money supported)
+      </p>
     `;
-    
-    // Add click handlers for payment method buttons
-    plans.querySelectorAll('.pay-method-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        plans.querySelectorAll('.pay-method-btn').forEach(b => b.style.borderColor = 'var(--border)');
-        btn.style.borderColor = 'var(--accent)';
-        window.selectedPayMethod = btn.dataset.method;
-      });
-    });
   }
   
   document.getElementById('paymentModal')?.classList.add('active');
@@ -561,7 +570,6 @@ function checkPro(agentId) {
 function initPaystackPayment() {
   const btn = document.getElementById('paySubmitBtn');
   const btnText = document.getElementById('payBtnText');
-  const method = window.selectedPayMethod || 'card';
   const plan = state.currentPlanSelection || 'pro';
   const prices = { pro: 900, team: 2900 }; // in cents
   const amount = prices[plan] || 900;
@@ -589,7 +597,7 @@ function initPaystackPayment() {
     email: email,
     amount: amount,
     currency: 'USD',
-    channels: method === 'card' ? ['card'] : method === 'mobile_money' ? ['mobile_money'] : ['bank_transfer'],
+    // Paystack handles both card and mobile money in one checkout
     metadata: {
       plan: plan,
       user_id: state.user?.id || email,
