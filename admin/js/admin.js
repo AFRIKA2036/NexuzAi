@@ -110,8 +110,8 @@ async function openDashboardForSession(session) {
     
     // Check local metadata first for fast UI feedback
     const metadata = session.user?.app_metadata || {};
-    const isAdmin = metadata.is_admin === true || metadata.role === 'admin';
-    const isGoogle = session.user?.app_metadata?.provider === 'google' || session.user?.user_metadata?.iss?.includes('google');
+    const isAdmin = metadata.is_admin === true || metadata.role === 'admin' || (Array.isArray(metadata.roles) && metadata.roles.includes('admin'));
+    const isGoogle = session.user?.app_metadata?.provider === 'google' || session.user?.user_metadata?.provider === 'google';
 
     if (!isAdmin || !isGoogle) {
         setAuthStatus('Access denied. Only authorized Google accounts can enter.', '#ef4444');

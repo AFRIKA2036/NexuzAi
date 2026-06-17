@@ -59,6 +59,13 @@ export async function handleAdminDashboard(req: Request) {
         cors.headers,
       );
     }
+    if (userData.user.app_metadata?.provider !== "google") {
+      return json(
+        { error: "Admin access requires Google authentication", requestId },
+        403,
+        cors.headers,
+      );
+    }
 
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "summary");

@@ -256,7 +256,7 @@ function updateNavForAuth() {
 
     const adminMetadata = window.supabaseState?.session?.user?.app_metadata || {};
     const userProvider = window.supabaseState?.session?.user?.app_metadata?.provider || window.supabaseState?.session?.user?.user_metadata?.provider;
-    const isAdmin = (adminMetadata.is_admin === true || adminMetadata.role === 'admin') && userProvider === 'google';
+    const isAdmin = (adminMetadata.is_admin === true || adminMetadata.role === 'admin' || (Array.isArray(adminMetadata.roles) && adminMetadata.roles.includes('admin'))) && userProvider === 'google';
     if (isAdmin) {
       const adminLink = document.createElement('a');
       adminLink.id = 'adminDashboardLink';
