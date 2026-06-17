@@ -3,11 +3,7 @@
 const config = window.NEXUZ_SUPABASE_CONFIG || {};
 const overlay = document.getElementById('login-overlay');
 const authStatus = document.getElementById('auth-status');
-const authForm = document.getElementById('auth-form');
-const authSubmitBtn = document.getElementById('auth-submit-btn');
-const magicLinkBtn = document.getElementById('magic-link-btn');
-const authTimer = document.getElementById('auth-timer');
-const timerSeconds = document.getElementById('timer-seconds');
+const googleLoginBtn = document.getElementById('google-login-btn');
 const sidebar = document.getElementById('sidebar');
 const menuToggle = document.getElementById('menu-toggle');
 const refreshBtn = document.getElementById('refresh-btn');
@@ -16,7 +12,6 @@ const usersTable = document.querySelector('#users-table tbody');
 const paymentsTable = document.querySelector('#payments-table tbody');
 
 let sb = null;
-let cooldownInterval = null;
 let growthChart = null;
 let revenueChart = null;
 
@@ -76,33 +71,47 @@ function setAuthStatus(message, color = '#94a3b8') {
 async function checkAdmin() {
     if (!isConfigured() || !window.supabase) {
         setAuthStatus('Supabase is not configured for this deployment.', '#ef4444');
-        authSubmitBtn.disabled = true;
-        magicLinkBtn.disabled = true;
+        if (googleLoginBtn) googleLoginBtn.disabled = true;
         return;
     }
 
     sb = window.supabase.createClient(config.url, config.anonKey);
+    
+    // Handle redirect result if any
+    const { data: { session }, error } = await sb.auth.getSession();
+    
     sb.auth.onAuthStateChange(async (_event, session) => {
+        console.log('Auth state change:', _event, session?.user?.email);
         if (session) {
-            await openDashboardForSession();
+            await openDashboardForSession(session);
         } else {
             overlay.style.display = 'flex';
             dashboardReady = false;
         }
     });
 
-    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+        setAuthStatus('Verifying admin access...');
+        await openDashboardForSession(session);
+    } else {
+        overlay.style.display = 'flex';
+    }
+}
 
-    if (!session) {
+async function openDashboardForSession(session) {
+    if (!session) return;
+    
+    // Check local metadata first for fast UI feedback
+    const metadata = session.user?.app_metadata || {};
+    const isAdmin = metadata.is_admin === true || metadata.role === 'admin';
+    const isGoogle = session.user?.app_metadata?.provider === 'google' || session.user?.user_metadata?.iss?.includes('google');
+
+    if (!isAdmin || !isGoogle) {
+        setAuthStatus('Access denied. Only authorized Google accounts can enter.', '#ef4444');
         overlay.style.display = 'flex';
         return;
     }
 
-    setAuthStatus('Verifying admin access...');
-    await openDashboardForSession();
-}
-
-async function openDashboardForSession() {
     try {
         const data = await callAdminApi({ action: 'summary' });
         overlay.style.display = 'none';
@@ -115,88 +124,33 @@ async function openDashboardForSession() {
             return;
         }
         if (err.status === 403) {
-            setAuthStatus('Access denied. This account is not marked as admin.', '#ef4444');
+            setAuthStatus('Access denied. Account not authorized in backend.', '#ef4444');
             return;
         }
         setAuthStatus(`Admin check failed: ${err.message}`, '#ef4444');
     }
 }
 
-function startCooldown(seconds) {
-    if (cooldownInterval) clearInterval(cooldownInterval);
-    authTimer.style.display = 'block';
-    magicLinkBtn.disabled = true;
-    let remaining = seconds;
-
-    timerSeconds.innerText = remaining;
-
-    cooldownInterval = setInterval(() => {
-        remaining--;
-        timerSeconds.innerText = remaining;
-        if (remaining <= 0) {
-            clearInterval(cooldownInterval);
-            authTimer.style.display = 'none';
-            magicLinkBtn.disabled = false;
-            magicLinkBtn.innerText = 'Email Magic Link';
+if (googleLoginBtn) {
+    googleLoginBtn.onclick = async () => {
+        try {
+            googleLoginBtn.disabled = true;
+            googleLoginBtn.innerText = 'Redirecting...';
+            setAuthStatus('Initiating Google Sign-In...');
+            
+            const redirectTo = `${window.location.origin}/admin/index.html`;
+            const { error } = await sb.auth.signInWithOAuth({
+                provider: 'google',
+                options: { redirectTo }
+            });
+            if (error) throw error;
+        } catch (err) {
+            setAuthStatus(`ERROR: ${err.message}`, '#ef4444');
+            googleLoginBtn.disabled = false;
+            googleLoginBtn.innerText = 'Sign in with Google';
         }
-    }, 1000);
+    };
 }
-
-authForm.onsubmit = async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('auth-email').value.trim();
-    const password = document.getElementById('auth-password').value;
-
-    authSubmitBtn.disabled = true;
-    authSubmitBtn.innerText = 'Signing In...';
-    setAuthStatus('Checking credentials...');
-
-    try {
-        const { error } = await sb.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        await openDashboardForSession();
-    } catch (err) {
-        setAuthStatus(`ERROR: ${err.message}`, '#ef4444');
-    } finally {
-        authSubmitBtn.disabled = false;
-        authSubmitBtn.innerText = 'Sign In';
-    }
-};
-
-magicLinkBtn.onclick = async () => {
-    const email = document.getElementById('auth-email').value.trim();
-    if (!email) {
-        setAuthStatus('Enter your admin email first.', '#f0a84a');
-        return;
-    }
-
-    magicLinkBtn.disabled = true;
-    magicLinkBtn.innerText = 'Sending Link...';
-
-    try {
-        const redirectTo = `${window.location.origin}/admin/index.html`;
-        const { error } = await sb.auth.signInWithOtp({
-            email,
-            options: { emailRedirectTo: redirectTo }
-        });
-
-        if (error) {
-            const match = error.message.match(/\d+/);
-            if (match) startCooldown(Number(match[0]));
-            throw error;
-        }
-
-        setAuthStatus('Link sent. Check your email to enter the admin dashboard.', '#4af0c8');
-        magicLinkBtn.innerText = 'Link Sent';
-        startCooldown(60);
-    } catch (err) {
-        setAuthStatus(`ERROR: ${err.message}`, '#ef4444');
-        if (authTimer.style.display === 'none') {
-            magicLinkBtn.disabled = false;
-            magicLinkBtn.innerText = 'Email Magic Link';
-        }
-    }
-};
 
 function initDashboard() {
     if (dashboardReady) return;

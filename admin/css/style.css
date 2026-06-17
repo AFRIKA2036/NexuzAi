@@ -82,6 +82,13 @@ h1, h2, h3, .brand-name {
     margin-bottom: 1rem;
     display: inline-block;
     filter: drop-shadow(0 0 10px var(--primary));
+    animation: spin 8s linear infinite;
+    color: var(--primary);
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .input-group {
