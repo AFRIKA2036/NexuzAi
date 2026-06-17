@@ -60,8 +60,8 @@ Deno.serve(async (req) => {
     }
 
     const amounts = {
-      pro: 10586, // 105.86 GHS
-      team: 34109 // 341.09 GHS
+      pro: 15000, // 150.00 GHS
+      team: 45000 // 450.00 GHS
     };
     const amount = amounts[planKey];
 

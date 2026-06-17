@@ -83,6 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     checkServerHealth();
     checkCookieConsent(); 
+    checkPaymentCallback(); // Check if we just returned from Paystack
     setInterval(checkServerHealth, 30000);
 
     // Smooth scroll
@@ -566,78 +567,108 @@ function checkPro(agentId) {
   }
 }
 
-// Initialize Paystack Payment
-function initPaystackPayment() {
+// Check for payment redirect callback
+async function checkPaymentCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const reference = params.get('reference') || params.get('trxref');
+  const plan = localStorage.getItem('pending_plan');
+
+  if (reference && plan) {
+    // Clear URL parameters
+    const newUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, document.title, newUrl);
+    
+    localStorage.removeItem('pending_plan');
+    showToast('Verifying payment...');
+    
+    // Open modal to show progress
+    openPaymentModal(plan);
+    const btn = document.getElementById('paySubmitBtn');
+    const btnText = document.getElementById('payBtnText');
+    if (btn) btn.disabled = true;
+    if (btnText) btnText.textContent = 'Verifying...';
+    
+    await verifyPayment(reference, plan);
+  }
+}
+
+// Initialize Paystack Payment (Redirect Flow)
+async function initPaystackPayment() {
   const btn = document.getElementById('paySubmitBtn');
   const btnText = document.getElementById('payBtnText');
   const plan = state.currentPlanSelection || 'pro';
-  const prices = { pro: 900, team: 2900 }; // in cents
-  const amount = prices[plan] || 900;
-  const email = state.user?.email || document.getElementById('loginEmail')?.value;
   
-  if (!email || !email.includes('@')) {
-    showToast('Please login or enter your email first');
+  if (!state.user) {
+    showToast('Please login to continue');
     closePaymentModal();
     openLoginModal('signin');
     return;
   }
-  
-  if (!btn) return;
-  
-  if (typeof window.PaystackPop === 'undefined') {
-    showToast('Payment gateway loading... please wait');
-    return;
-  }
-  
-  btn.disabled = true;
-  if (btnText) btnText.textContent = 'Redirecting to Paystack...';
-  
-  const handler = window.PaystackPop.setup({
-    key: (window.NEXUZ_SUPABASE_CONFIG?.paystackPublicKey || 'pk_live_XXXXXXXXXXXXXXXXXXXXXXXX'),
-    email: email,
-    amount: amount,
-    currency: 'USD',
-    // Paystack handles both card and mobile money in one checkout
-    metadata: {
-      plan: plan,
-      user_id: state.user?.id || email,
-      custom_fields: [
-        { display_name: 'Plan', variable_name: 'plan', value: plan.toUpperCase() }
-      ]
-    },
-    callback: function(response) {
-      // Payment successful - verify with backend
-      showToast('Payment successful! Verifying...');
-      verifyPayment(response.reference, plan);
-    },
-    onClose: function() {
-      showToast('Payment cancelled');
-      btn.disabled = false;
-      if (btnText) btnText.textContent = 'Proceed to Payment';
+
+  if (btn) btn.disabled = true;
+  if (btnText) btnText.textContent = 'Preparing checkout...';
+
+  try {
+    const token = await getSupabaseAccessToken();
+    if (!token) throw new Error('Authentication required');
+
+    const baseUrl = window.NEXUZ_SUPABASE_CONFIG?.url || '';
+    const functionUrl = `${baseUrl.replace(/\/+$/, '')}/functions/v1/paystack-initialize`;
+    
+    // Save selection to localStorage
+    localStorage.setItem('pending_plan', plan);
+
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        planId: plan,
+        callbackUrl: window.location.origin + window.location.pathname
+      })
+    });
+
+    const data = await response.json();
+    if (data.success && data.url) {
+      if (btnText) btnText.textContent = 'Redirecting to Paystack...';
+      window.location.href = data.url;
+    } else {
+      throw new Error(data.error || 'Failed to initialize payment');
     }
-  });
-  handler.openIframe();
+  } catch (err) {
+    console.error('Payment Init Error:', err);
+    showToast('Error: ' + err.message);
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.textContent = 'Proceed to Payment';
+  }
 }
 
-// Verify payment with backend
+// Verify payment with Supabase Edge Function
 async function verifyPayment(reference, plan) {
   try {
-    const res = await fetch('/api/verify-payment', {
+    const token = await getSupabaseAccessToken();
+    if (!token) throw new Error('Authentication required');
+
+    const baseUrl = window.NEXUZ_SUPABASE_CONFIG?.url || '';
+    const functionUrl = `${baseUrl.replace(/\/+$/, '')}/functions/v1/paystack-verify`;
+
+    const res = await fetch(functionUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reference, plan })
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ reference, planId: plan })
     });
     const data = await res.json();
     if (data.success) {
       showToast('Upgrade successful! Welcome to ' + plan.toUpperCase());
       closePaymentModal();
       // Refresh user plan
-      if (window.supabaseState?.ready && state.user) {
-        await hydrateUserFromSupabase({ 
-          id: state.user.id, 
-          email: state.user.email,
-          user_metadata: {}
-        });
+      if (typeof hydrateUserFromSupabase === 'function' && state.user) {
+        await hydrateUserFromSupabase(state.user);
       }
     } else {
       showToast('Payment verification failed: ' + (data.error || 'Unknown error'));
