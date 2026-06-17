@@ -12,10 +12,18 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 load_dotenv()
 
 app = FastAPI()
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Constants for validation
 MAX_MESSAGES = 10
@@ -387,6 +395,7 @@ async def health():
         "auth": "supabase-jwt" if LOCAL_PROXY_REQUIRE_AUTH else "insecure-dev",
     }
 
+@limiter.limit("20/minute")
 @app.post("/v1/chat/completions")
 async def chat_completions(req_body: ChatCompletionRequest, request: Request):
     body = req_body.dict()

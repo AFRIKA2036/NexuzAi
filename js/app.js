@@ -593,7 +593,7 @@ function initPaystackPayment() {
   if (btnText) btnText.textContent = 'Redirecting to Paystack...';
   
   const handler = window.PaystackPop.setup({
-    key: 'pk_live_XXXXXXXXXXXXXXXXXXXXXXXX', // Replace with your Paystack public key
+    key: (window.NEXUZ_SUPABASE_CONFIG?.paystackPublicKey || 'pk_live_XXXXXXXXXXXXXXXXXXXXXXXX'),
     email: email,
     amount: amount,
     currency: 'USD',
