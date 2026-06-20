@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+
+# Sitemaps
+Sitemap: https://nexuzai.xyz/sitemap.xml
+Sitemap: https://www.nexuzai.xyz/sitemap.xml
+
+# Crawl delay (optional, polite for shared hosting)
+Crawl-delay: 0.5

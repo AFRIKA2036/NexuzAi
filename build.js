@@ -10,7 +10,9 @@ const staticEntries = [
   'css',
   'js',
   'admin',
-  'docs'
+  'docs',
+  'sitemap.xml',
+  'robots.txt'
 ];
 
 function assertInsideRoot(targetPath) {
