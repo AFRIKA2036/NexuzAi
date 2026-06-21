@@ -38,13 +38,31 @@ function adminFunctionUrl() {
 }
 
 async function checkSession() {
-  if (!isConfigured() || !window.supabase) {
+  if (!isConfigured()) {
     setAuthStatus('Supabase is not configured for this deployment.', '#ef4444');
     if (googleLoginBtn) googleLoginBtn.disabled = true;
     return;
   }
 
-  sb = window.supabase.createClient(config.url, config.anonKey);
+  if (!window.supabase) {
+    setAuthStatus('Supabase client library failed to load. Refresh or check your network.', '#ef4444');
+    if (googleLoginBtn) googleLoginBtn.disabled = true;
+    return;
+  }
+
+  try {
+    sb = window.supabase.createClient(config.url, config.anonKey);
+  } catch (err) {
+    setAuthStatus('Failed to initialize Supabase client.', '#ef4444');
+    if (googleLoginBtn) googleLoginBtn.disabled = true;
+    return;
+  }
+
+  if (!sb) {
+    setAuthStatus('Supabase client returned null. Check your configuration.', '#ef4444');
+    if (googleLoginBtn) googleLoginBtn.disabled = true;
+    return;
+  }
 
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
