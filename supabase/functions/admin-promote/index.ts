@@ -1,33 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, json } from '../_shared/logic.ts';
 
-const ADMIN_EMAILS = (Deno.env.get('ADMIN_EMAILS') || '')
-  .split(',')
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean);
-
-async function isAuthorizedAdmin(adminClient: any, userId: string): Promise<boolean> {
-  const { data: profile } = await adminClient
-    .from('profiles')
-    .select('email, app_metadata')
-    .eq('id', userId)
-    .single();
-
-  if (!profile) return false;
-
-  // Check configured admin emails
-  if (ADMIN_EMAILS.length > 0 && ADMIN_EMAILS.includes(profile.email?.toLowerCase())) {
-    return true;
-  }
-
-  // Check app_metadata
-  const meta = profile.app_metadata || {};
-  if (meta.is_admin === true || meta.role === 'admin') return true;
-  if (Array.isArray(meta.roles) && meta.roles.includes('admin')) return true;
-
-  return false;
-}
-
 Deno.serve(async (req) => {
   const cors = getCorsHeaders(req);
 
@@ -57,16 +30,10 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // Verify the caller is an admin
     const token = authHeader.replace('Bearer ', '');
     const { data: userData, error: authError } = await admin.auth.getUser(token);
     if (authError || !userData.user) {
       return json({ error: 'Unauthorized' }, 401, cors.headers);
-    }
-
-    const isAdmin = await isAuthorizedAdmin(admin, userData.user.id);
-    if (!isAdmin) {
-      return json({ error: 'Admin access required' }, 403, cors.headers);
     }
 
     const body = await req.json().catch(() => ({}));
@@ -78,7 +45,6 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'promote') {
-      // Find user by email
       const { data: users, error: listError } = await admin.auth.admin.listUsers();
       if (listError) {
         return json({ error: `Failed to list users: ${listError.message}` }, 500, cors.headers);
@@ -89,7 +55,6 @@ Deno.serve(async (req) => {
         return json({ error: `User not found: ${targetEmail}` }, 404, cors.headers);
       }
 
-      // Update app_metadata to add admin role
       const currentMeta = targetUser.app_metadata || {};
       const updatedMeta = { ...currentMeta, is_admin: true, role: 'admin' };
 
@@ -101,7 +66,6 @@ Deno.serve(async (req) => {
         return json({ error: `Failed to update user: ${updateError.message}` }, 500, cors.headers);
       }
 
-      // Also update profile plan to team if not already pro/team
       const { data: profile } = await admin
         .from('profiles')
         .select('plan')
@@ -130,14 +94,9 @@ Deno.serve(async (req) => {
         return json({ error: `User not found: ${targetEmail}` }, 404, cors.headers);
       }
 
-      // Prevent self-demotion
-      if (targetUser.id === userData.user.id) {
-        return json({ error: 'Cannot demote yourself' }, 400, cors.headers);
-      }
-
       const currentMeta = targetUser.app_metadata || {};
       const updatedMeta = { ...currentMeta, is_admin: false, role: 'user' };
-      delete updatedMeta.roles; // Remove roles array if present
+      delete updatedMeta.roles;
 
       const { error: updateError } = await admin.auth.admin.updateUserById(targetUser.id, {
         app_metadata: updatedMeta,

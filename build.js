@@ -7,9 +7,9 @@ const configPath = path.join(outputDir, 'js', 'supabase-config.js');
 
 const staticEntries = [
   'index.html',
+  'admin',
   'css',
   'js',
-  'admin',
   'docs',
   'sitemap.xml',
   'robots.txt',
