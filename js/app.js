@@ -426,7 +426,7 @@ async function runAgent() {
     const system = agent.systemPrompt;
     const user = agent.buildPrompt(fields);
     
-    const result = await callAIAPI(system, user, agent.id, (text) => {
+    const result = await callAIAPI(system, user, state.currentAgent, (text) => {
       if (content) content.innerHTML = formatAIResponse(text);
       state.output = text;
     });
