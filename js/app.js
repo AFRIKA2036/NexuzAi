@@ -457,12 +457,20 @@ async function callAIAPI(system, user, onChunk) {
     method: 'POST',
     headers,
     body: JSON.stringify({
+      model: CONFIG.model || 'auto',
       messages: [{role:'system', content:system}, {role:'user', content:user}],
       stream: true
     })
   });
 
-  if (!res.ok) throw new Error("AI Connection Failed");
+  if (!res.ok) {
+    let errorText = 'AI Connection Failed';
+    try {
+      const errorData = await res.json();
+      if (errorData.error) errorText = errorData.error;
+    } catch {}
+    throw new Error(errorText);
+  }
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
