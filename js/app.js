@@ -426,7 +426,7 @@ async function runAgent() {
     const system = agent.systemPrompt;
     const user = agent.buildPrompt(fields);
     
-    const result = await callAIAPI(system, user, (text) => {
+    const result = await callAIAPI(system, user, agent.id, (text) => {
       if (content) content.innerHTML = formatAIResponse(text);
       state.output = text;
     });
@@ -441,7 +441,7 @@ async function runAgent() {
   }
 }
 
-async function callAIAPI(system, user, onChunk) {
+async function callAIAPI(system, user, agentId, onChunk) {
   const isCloud = !CONFIG.useLocal && CONFIG.cloudProxyUrl;
   const url = isCloud ? CONFIG.cloudProxyUrl : CONFIG.localProxyUrl;
   
@@ -457,6 +457,7 @@ async function callAIAPI(system, user, onChunk) {
     method: 'POST',
     headers,
     body: JSON.stringify({
+      agent_id: agentId,
       model: CONFIG.model || 'auto',
       messages: [{role:'system', content:system}, {role:'user', content:user}],
       stream: true
