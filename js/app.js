@@ -376,8 +376,7 @@ function openAgent(agentId) {
 }
 
 function buildForm(agent) {
-  let html = '<div class="loading-bar" id="loadingBar"></div>';
-  html += '<div id="progressPercent">0%</div>';
+  let html = '';
   agent.fields.forEach(field => {
     html += `<label>${field.label}</label>`;
     if (field.type === 'textarea') {
@@ -436,6 +435,7 @@ async function runAgent() {
       if (bar) bar.style.width = progress + '%';
       if (progressText) progressText.textContent = Math.round(progress) + '%';
     };
+    updateProgress(0);
 
     const tickProgress = async () => {
       while (!progressDone && progress < 70) {
