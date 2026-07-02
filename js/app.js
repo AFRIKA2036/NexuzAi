@@ -179,6 +179,21 @@ function addLocalToggle() {
       CONFIG.useLocal = e.target.checked;
       localStorage.setItem('nexuz_use_local', CONFIG.useLocal);
       showToast(CONFIG.useLocal ? '✦ Switched to Offline Mode' : '✦ Switched to Cloud Mode');
+      const dot = document.getElementById('serverStatus');
+      if (dot) {
+        const production = CONFIG.healthUrl.startsWith('http://localhost') && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
+        if (production) {
+          if (CONFIG.useLocal) {
+            dot.style.background = '#ef4444';
+            dot.style.opacity = '0.8';
+            dot.title = 'Local proxy unavailable in production';
+          } else {
+            dot.style.background = '#22c55e';
+            dot.style.opacity = '0.8';
+            dot.title = 'Cloud Mode Active';
+          }
+        }
+      }
     });
   }
 }
@@ -189,10 +204,17 @@ async function checkServerHealth() {
   
   // Skip health check on production (Vercel) - local proxy won't be available
   if (CONFIG.healthUrl.startsWith('http://localhost') && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
-    dot.style.background = '#666';
-    dot.style.opacity = '0.6';
-    dot.title = 'Server check skipped (production)';
-    return false;
+    if (CONFIG.useLocal) {
+      dot.style.background = '#ef4444';
+      dot.style.opacity = '0.8';
+      dot.title = 'Local proxy unavailable in production';
+      return false;
+    } else {
+      dot.style.background = '#22c55e';
+      dot.style.opacity = '0.8';
+      dot.title = 'Cloud Mode Active';
+      return true;
+    }
   }
   
   try {
