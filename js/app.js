@@ -377,6 +377,7 @@ function openAgent(agentId) {
 
 function buildForm(agent) {
   let html = '<div class="loading-bar" id="loadingBar"></div>';
+  html += '<div id="progressPercent">0%</div>';
   agent.fields.forEach(field => {
     html += `<label>${field.label}</label>`;
     if (field.type === 'textarea') {
@@ -414,8 +415,12 @@ async function runAgent() {
 
   const btn = document.getElementById('agentSubmitBtn');
   const bar = document.getElementById('loadingBar');
+  const progressText = document.getElementById('progressPercent');
   if (btn) btn.disabled = true;
   if (bar) bar.classList.add('active');
+
+  let progress = 0;
+  let progressDone = false;
 
   try {
     const outputDiv = document.getElementById('modalOutput');
@@ -426,22 +431,53 @@ async function runAgent() {
     const system = agent.systemPrompt;
     const user = agent.buildPrompt(fields);
     
+    const updateProgress = (pct) => {
+      progress = Math.min(100, Math.max(progress, pct));
+      if (bar) bar.style.width = progress + '%';
+      if (progressText) progressText.textContent = Math.round(progress) + '%';
+    };
+
+    const tickProgress = async () => {
+      while (!progressDone && progress < 70) {
+        const remaining = 70 - progress;
+        const step = Math.max(1, remaining * 0.12);
+        updateProgress(progress + step);
+        await new Promise(r => setTimeout(r, 180 + Math.random() * 220));
+      }
+    };
+    const ticker = tickProgress();
+
     const result = await callAIAPI(system, user, state.currentAgent, (text) => {
-      if (content) content.innerHTML = formatAIResponse(text);
+      if (content) content.innerHTML = formatAIResponse(text || '✦ Thinking...');
       state.output = text;
+      updateProgress(85);
+    }, (pct) => {
+      updateProgress(pct);
     });
+
+    progressDone = true;
+    await ticker;
+    updateProgress(100);
     
-    state.output = result;
+    if (result && result.trim()) {
+      if (content) content.innerHTML = formatAIResponse(result);
+      state.output = result;
+    }
     showToast('✓ Done');
   } catch (err) {
     showToast(err.message);
   } finally {
+    progressDone = true;
     if (btn) btn.disabled = false;
-    if (bar) bar.classList.remove('active');
+    if (bar) {
+      bar.classList.remove('active');
+      bar.style.width = '100%';
+    }
+    if (progressText) progressText.textContent = '100%';
   }
 }
 
-async function callAIAPI(system, user, agentId, onChunk) {
+async function callAIAPI(system, user, agentId, onChunk, onProgress) {
   const isCloud = !CONFIG.useLocal && CONFIG.cloudProxyUrl;
   const url = isCloud ? CONFIG.cloudProxyUrl : CONFIG.localProxyUrl;
   
@@ -471,6 +507,19 @@ async function callAIAPI(system, user, agentId, onChunk) {
       if (errorData.error) errorText = errorData.error;
     } catch {}
     throw new Error(errorText);
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  const isStream = contentType.includes('text/event-stream');
+
+  if (!isStream) {
+    const data = await res.json();
+    const text = data?.choices?.[0]?.message?.content || '';
+    if (onProgress) {
+      onProgress(100);
+      await new Promise(r => setTimeout(r, 150));
+    }
+    return text;
   }
 
   const reader = res.body.getReader();

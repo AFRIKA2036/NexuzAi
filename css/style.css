@@ -690,8 +690,10 @@ body {
 #progressPercent {
   font-weight: bold;
   color: var(--accent);
-  margin-left: 0.5rem;
+  margin-left: 0;
+  margin-top: 0.25rem;
   font-family: var(--font-mono);
+  display: block;
 }
 
 /* OUTPUT */
