@@ -1,9 +1,6 @@
 // admin/js/admin.js
 
 const config = window.NEXUZ_SUPABASE_CONFIG || {};
-const overlay = document.getElementById('login-overlay');
-const authStatus = document.getElementById('auth-status');
-const googleLoginBtn = document.getElementById('google-login-btn');
 const sidebar = document.getElementById('sidebar');
 const menuToggle = document.getElementById('menu-toggle');
 const refreshBtn = document.getElementById('refresh-btn');
@@ -11,154 +8,30 @@ const paymentsRefreshBtn = document.getElementById('payments-refresh-btn');
 const usersTable = document.querySelector('#users-table tbody');
 const paymentsTable = document.querySelector('#payments-table tbody');
 
-let sb = null;
 let growthChart = null;
 let revenueChart = null;
 let dashboardReady = false;
-const isSigninPage = window.location.pathname.includes('/admin/signin.html');
-
-function setAuthStatus(message, color = '#94a3b8') {
-  if (!authStatus) return;
-  authStatus.innerText = message;
-  authStatus.style.color = color;
-}
-
-function isConfigured() {
-  return Boolean(
-    config.url &&
-    config.anonKey &&
-    !String(config.url).includes('YOUR_SUPABASE') &&
-    !String(config.anonKey).includes('{{')
-  );
-}
 
 function adminFunctionUrl() {
   const projectUrl = String(config.url || '').replace(/\/+$/, '');
   return config.adminFunctionUrl || `${projectUrl}/functions/v1/admin-dashboard`;
 }
 
-async function checkSession() {
-  if (!isConfigured()) {
-    setAuthStatus('Supabase is not configured for this deployment.', '#ef4444');
-    if (googleLoginBtn) googleLoginBtn.disabled = true;
-    return;
-  }
-
-  if (!window.supabase) {
-    setAuthStatus('Supabase client library failed to load. Refresh or check your network.', '#ef4444');
-    if (googleLoginBtn) googleLoginBtn.disabled = true;
-    return;
-  }
-
-  try {
-    sb = window.supabase.createClient(config.url, config.anonKey);
-  } catch (err) {
-    setAuthStatus('Failed to initialize Supabase client.', '#ef4444');
-    if (googleLoginBtn) googleLoginBtn.disabled = true;
-    return;
-  }
-
-  if (!sb) {
-    setAuthStatus('Supabase client returned null. Check your configuration.', '#ef4444');
-    if (googleLoginBtn) googleLoginBtn.disabled = true;
-    return;
-  }
-
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    await handleSession(session);
-  } else {
-    showLoginOverlay();
-  }
-
-  sb.auth.onAuthStateChange(async (_event, session) => {
-    if (session) {
-      await handleSession(session);
-    } else {
-      showLoginOverlay();
-    }
-  });
-}
-
-async function handleSession(session) {
-  const email = session.user?.email || '';
-  const confirmedAt = session.user?.email_confirmed_at || session.user?.confirmed_at || '';
-  const isVerified = Boolean(confirmedAt);
-
-  if (!isVerified) {
-    setAuthStatus('Your email is not verified. Please check your inbox and click the verification link.', '#f59e0b');
-    if (googleLoginBtn) {
-      googleLoginBtn.disabled = false;
-      googleLoginBtn.innerText = isSigninPage ? 'Sign in with Google' : 'Sign up with Google';
-    }
-    overlay.style.display = 'flex';
-    return;
-  }
-
-  try {
-    const data = await callAdminApi({ action: 'summary' });
-    overlay.style.display = 'none';
-    initDashboard();
-    renderDashboard(data);
-  } catch (err) {
-    overlay.style.display = 'flex';
-    if (err.status === 401) {
-      setAuthStatus('Session expired. Sign in again.', '#ef4444');
-    } else if (err.status === 403) {
-      setAuthStatus('Access denied.', '#ef4444');
-    } else {
-      setAuthStatus(`Admin check failed: ${err.message}`, '#ef4444');
-    }
-    if (googleLoginBtn) {
-      googleLoginBtn.disabled = false;
-      googleLoginBtn.innerText = isSigninPage ? 'Sign in with Google' : 'Sign up with Google';
-    }
-  }
-}
-
-function showLoginOverlay() {
-  overlay.style.display = 'flex';
-  dashboardReady = false;
-  if (googleLoginBtn) {
-    googleLoginBtn.disabled = false;
-    googleLoginBtn.innerText = isSigninPage ? 'Sign in with Google' : 'Sign up with Google';
-  }
-  setAuthStatus(
-    isSigninPage
-      ? 'Sign in with Google to access the admin dashboard.'
-      : 'Sign up with Google. You must verify your email before entering.'
+function isConfigured() {
+  return Boolean(
+    config.url &&
+    !String(config.url).includes('YOUR_SUPABASE')
   );
-}
-
-if (googleLoginBtn) {
-  googleLoginBtn.onclick = async () => {
-    try {
-      googleLoginBtn.disabled = true;
-      googleLoginBtn.innerText = 'Redirecting...';
-      setAuthStatus('Redirecting to Google...');
-
-      const redirectTo = isSigninPage ? '/admin/' : '/admin/';
-      const { error } = await sb.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo }
-      });
-      if (error) throw error;
-    } catch (err) {
-      setAuthStatus(`ERROR: ${err.message}`, '#ef4444');
-      googleLoginBtn.disabled = false;
-      googleLoginBtn.innerText = isSigninPage ? 'Sign in with Google' : 'Sign up with Google';
-    }
-  };
 }
 
 function initDashboard() {
   if (dashboardReady) return;
   dashboardReady = true;
 
-  refreshBtn.onclick = loadDashboard;
+  if (refreshBtn) refreshBtn.onclick = loadDashboard;
   if (paymentsRefreshBtn) paymentsRefreshBtn.onclick = loadPayments;
 
-  if (menuToggle) {
+  if (menuToggle && sidebar) {
     menuToggle.onclick = () => sidebar.classList.toggle('open');
   }
 
@@ -171,13 +44,16 @@ function initDashboard() {
     }
   });
 
-  usersTable.addEventListener('change', async (e) => {
-    if (!e.target.classList.contains('plan-select')) return;
-    await updateUserPlan(e.target);
-  });
+  if (usersTable) {
+    usersTable.addEventListener('change', async (e) => {
+      if (!e.target.classList.contains('plan-select')) return;
+      await updateUserPlan(e.target);
+    });
+  }
 }
 
 async function loadDashboard() {
+  if (!refreshBtn) return;
   refreshBtn.disabled = true;
   refreshBtn.innerText = 'Syncing...';
 
@@ -186,11 +62,6 @@ async function loadDashboard() {
     renderDashboard(data);
   } catch (err) {
     console.error(err);
-    setAuthStatus(`Dashboard refresh failed: ${err.message}`, '#ef4444');
-    if (err.status === 401 || err.status === 403) {
-      overlay.style.display = 'flex';
-      dashboardReady = false;
-    }
   } finally {
     refreshBtn.disabled = false;
     refreshBtn.innerText = 'Update Stream';
@@ -198,17 +69,9 @@ async function loadDashboard() {
 }
 
 async function callAdminApi(payload) {
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session?.access_token) {
-    const err = new Error('Missing admin session');
-    err.status = 401;
-    throw err;
-  }
-
   const response = await fetch(adminFunctionUrl(), {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${session.access_token}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
@@ -228,25 +91,30 @@ function renderDashboard(data) {
   const payments = data.payments || {};
   const revenueTrend = payments.revenueTrend || [];
 
-  document.getElementById('total-users').innerText = formatNumber(metrics.totalUsers);
-  document.getElementById('paid-users').innerText = formatNumber(metrics.paidUsers);
-  document.getElementById('payment-revenue').innerText = formatCurrency(payments.totalSuccessfulAmount, payments.currency);
+  const set = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.innerText = value;
+  };
+
+  set('total-users', formatNumber(metrics.totalUsers));
+  set('paid-users', formatNumber(metrics.paidUsers));
+  set('payment-revenue', formatCurrency(payments.totalSuccessfulAmount, payments.currency));
 
   const revenue7d = revenueTrend.slice(-7).reduce((acc, curr) => acc + curr.amount, 0);
-  document.getElementById('revenue-7d').innerText = formatCurrency(revenue7d, payments.currency);
+  set('revenue-7d', formatCurrency(revenue7d, payments.currency));
 
   const totalAttempts = payments.successfulCount + payments.failedCount + payments.abandonedCount;
   const conversionRate = totalAttempts > 0 ? (payments.successfulCount / totalAttempts * 100).toFixed(1) : '0';
-  document.getElementById('conversion-rate').innerText = `${conversionRate}%`;
+  set('conversion-rate', `${conversionRate}%`);
 
   const revenueToday = revenueTrend.length > 0 ? revenueTrend[revenueTrend.length - 1].amount : 0;
-  document.getElementById('revenue-today').innerText = formatCurrency(revenueToday, payments.currency);
+  set('revenue-today', formatCurrency(revenueToday, payments.currency));
 
   const plans = metrics.plans || {};
-  document.getElementById('plan-free').innerText = formatNumber(plans.free);
-  document.getElementById('plan-pro').innerText = formatNumber(plans.pro);
-  document.getElementById('plan-team').innerText = formatNumber(plans.team);
-  document.getElementById('last-sync').innerText = `Last sync: ${formatDateTime(data.generatedAt)}`;
+  set('plan-free', formatNumber(plans.free));
+  set('plan-pro', formatNumber(plans.pro));
+  set('plan-team', formatNumber(plans.team));
+  set('last-sync', `Last sync: ${formatDateTime(data.generatedAt)}`);
 
   renderGrowthChart(data.signupTrend || []);
   renderRevenueChart(revenueTrend);
@@ -258,6 +126,7 @@ function renderDashboard(data) {
 
 function renderActivity(rows) {
   const tbody = document.querySelector('#activity-table tbody');
+  if (!tbody) return;
   if (!rows.length) {
     tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No recent activity.</td></tr>';
     return;
@@ -274,6 +143,7 @@ function renderActivity(rows) {
 }
 
 function renderUsers(rows) {
+  if (!usersTable) return;
   if (!rows.length) {
     usersTable.innerHTML = '<tr><td colspan="4" class="empty-state">No users found.</td></tr>';
     return;
@@ -298,6 +168,7 @@ function renderUsers(rows) {
 
 function renderUsage(rows) {
   const tbody = document.querySelector('#usage-table tbody');
+  if (!tbody) return;
   if (!rows.length) {
     tbody.innerHTML = '<tr><td colspan="3" class="empty-state">No usage recorded today.</td></tr>';
     return;
@@ -322,11 +193,6 @@ async function loadPayments() {
     renderPayments(data.payments || {});
   } catch (err) {
     console.error(err);
-    setAuthStatus(`Payment refresh failed: ${err.message}`, '#ef4444');
-    if (err.status === 401 || err.status === 403) {
-      overlay.style.display = 'flex';
-      dashboardReady = false;
-    }
   } finally {
     paymentsRefreshBtn.disabled = false;
     paymentsRefreshBtn.innerText = 'Refresh Payments';
@@ -337,20 +203,27 @@ function renderPayments(payments) {
   if (!paymentsTable) return;
   const rows = payments.rows || [];
 
-  document.getElementById('payment-revenue').innerText = formatCurrency(payments.totalSuccessfulAmount, payments.currency);
-  document.getElementById('payments-successful').innerText = formatNumber(payments.successfulCount);
-  document.getElementById('payments-abandoned').innerText = formatNumber(payments.abandonedCount);
-  document.getElementById('payments-failed').innerText = formatNumber(payments.failedCount);
-  document.getElementById('payments-pending').innerText = formatNumber(payments.pendingCount);
-  document.getElementById('payments-paystack').innerText = formatNumber(payments.paystackCount);
-  document.getElementById('payments-supabase').innerText = formatNumber(payments.supabaseOnlyCount);
+  const set = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.innerText = value;
+  };
 
-  const syncText = payments.providerConfigured
-    ? payments.providerError
-      ? `Paystack sync warning: ${payments.providerError}. Showing Supabase records plus any fetched Paystack rows.`
-      : `Synced ${formatNumber(payments.totalRows)} payment records from Paystack and Supabase.`
-    : 'Paystack secret is not configured. Showing Supabase payment references only.';
-  document.getElementById('payments-sync').innerText = syncText;
+  set('payment-revenue', formatCurrency(payments.totalSuccessfulAmount, payments.currency));
+  set('payments-successful', formatNumber(payments.successfulCount));
+  set('payments-abandoned', formatNumber(payments.abandonedCount));
+  set('payments-failed', formatNumber(payments.failedCount));
+  set('payments-pending', formatNumber(payments.pendingCount));
+  set('payments-paystack', formatNumber(payments.paystackCount));
+  set('payments-supabase', formatNumber(payments.supabaseOnlyCount));
+
+  const syncEl = document.getElementById('payments-sync');
+  if (syncEl) {
+    syncEl.innerText = payments.providerConfigured
+      ? payments.providerError
+        ? `Paystack sync warning: ${payments.providerError}. Showing Supabase records plus any fetched Paystack rows.`
+        : `Synced ${formatNumber(payments.totalRows)} payment records from Paystack and Supabase.`
+      : 'Paystack secret is not configured. Showing Supabase payment references only.';
+  }
 
   if (!rows.length) {
     paymentsTable.innerHTML = '<tr><td colspan="7" class="empty-state">No payment records found.</td></tr>';
@@ -389,7 +262,7 @@ async function updateUserPlan(select) {
     await loadDashboard();
   } catch (err) {
     select.value = previousPlan;
-    setAuthStatus(`Plan update failed: ${err.message}`, '#ef4444');
+    console.error('Plan update failed:', err.message);
   } finally {
     select.disabled = false;
   }
@@ -397,13 +270,15 @@ async function updateUserPlan(select) {
 
 function renderGrowthChart(rows) {
   if (!window.Chart) return;
-  const ctx = document.getElementById('signupChart').getContext('2d');
+  const ctx = document.getElementById('signupChart');
+  if (!ctx) return;
+  const context = ctx.getContext('2d');
   const labels = rows.map((row) => formatShortDate(row.date));
   const values = rows.map((row) => Number(row.count || 0));
 
   if (growthChart) growthChart.destroy();
 
-  growthChart = new Chart(ctx, {
+  growthChart = new Chart(context, {
     type: 'line',
     data: {
       labels,
@@ -433,13 +308,15 @@ function renderGrowthChart(rows) {
 
 function renderRevenueChart(rows) {
   if (!window.Chart) return;
-  const ctx = document.getElementById('revenueChart').getContext('2d');
+  const ctx = document.getElementById('revenueChart');
+  if (!ctx) return;
+  const context = ctx.getContext('2d');
   const labels = rows.map((row) => formatShortDate(row.date));
   const values = rows.map((row) => Number(row.amount || 0));
 
   if (revenueChart) revenueChart.destroy();
 
-  revenueChart = new Chart(ctx, {
+  revenueChart = new Chart(context, {
     type: 'bar',
     data: {
       labels,
@@ -463,12 +340,6 @@ function renderRevenueChart(rows) {
     }
   });
 }
-
-document.getElementById('logout-btn').onclick = async (e) => {
-  e.preventDefault();
-  if (sb) await sb.auth.signOut();
-  window.location.href = '/admin/signin.html';
-};
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString();
@@ -513,4 +384,10 @@ function slug(value) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
 }
 
-checkSession();
+// Initialize the dashboard without authentication.
+if (!isConfigured()) {
+  console.warn('Admin: Supabase URL is not configured for this deployment.');
+}
+
+initDashboard();
+loadDashboard();

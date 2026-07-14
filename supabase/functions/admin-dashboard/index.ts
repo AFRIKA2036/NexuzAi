@@ -34,9 +34,34 @@ export async function handleAdminDashboard(req: Request) {
   }
 
   try {
-    const token = getBearerToken(req);
-    if (!token) {
-      return json({ error: "Unauthorized", requestId }, 401, cors.headers);
+    const supabaseUrl = requiredEnv("SUPABASE_URL");
+    const serviceKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
+    const admin = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    // TEMPORARY: set ADMIN_DISABLE_AUTH=true in the function env to open the
+    // admin dashboard without authentication. Do NOT leave this enabled in
+    // production.
+    const authDisabled =
+      String(Deno.env.get("ADMIN_DISABLE_AUTH") || "").toLowerCase() === "true";
+
+    if (!authDisabled) {
+      const token = getBearerToken(req);
+      if (!token) {
+        return json(
+          { error: "Unauthorized", requestId },
+          401,
+          cors.headers,
+        );
+      }
+
+      const { data: userData, error: authError } = await admin.auth.getUser(
+        token,
+      );
+      if (authError || !userData.user) {
+        return json({ error: "Unauthorized", requestId }, 401, cors.headers);
+      }
     }
 
     const supabaseUrl = requiredEnv("SUPABASE_URL");
