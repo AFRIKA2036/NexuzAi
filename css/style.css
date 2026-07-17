@@ -1667,6 +1667,14 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
   bottom: 0;
 }
 
+.cookie-banner.dismissed {
+  bottom: -150px;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease, visibility 0s linear 0.5s;
+}
+
 .cookie-content {
   max-width: 1200px;
   margin: 0 auto;

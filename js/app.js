@@ -2246,5 +2246,8 @@ function acceptCookies() {
 
 function closeCookieBanner() {
   const banner = document.getElementById('cookieBanner');
-  if (banner) banner.classList.remove('show');
+  if (!banner) return;
+  banner.classList.remove('show');
+  // Fully hide the banner so a tall banner isn't left partially visible.
+  banner.classList.add('dismissed');
 }
