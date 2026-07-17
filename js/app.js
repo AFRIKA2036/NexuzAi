@@ -277,20 +277,24 @@ async function handleLogin(e) {
       }
     } catch (err) {
       console.error("Auth Error:", err);
-      let msg = err.message || "An error occurred during authentication.";
+      let msg = err?.message || "An error occurred during authentication.";
 
       // Production-ready error mapping
       if (msg.includes("invalid_credentials") || msg.toLowerCase().includes("invalid login")) {
-        msg = "❌ Invalid email or password. Please try again.";
+        msg = "Invalid email or password. Please try again.";
       } else if (msg.includes("User already registered") || msg.includes("already exists")) {
-        msg = "❌ This email is already registered. Please sign in instead.";
+        msg = "This email is already registered. Please sign in instead.";
       } else if (msg.includes("signup_disabled")) {
-        msg = "❌ New signups are currently disabled.";
+        msg = "New signups are currently disabled.";
       } else if (msg.includes("Email not confirmed")) {
-        msg = "❌ Please confirm your email address before signing in.";
+        msg = "Please confirm your email address before signing in.";
+      } else if (!msg) {
+        msg = "An unexpected authentication error occurred.";
       }
 
-      showToast(msg);
+      closeLoginModal();
+      showToast(`❌ ${msg}`);
+      openLoginModal("signin");
     }
   }
 }
