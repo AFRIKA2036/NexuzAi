@@ -63,8 +63,21 @@ async function initSupabase() {
     return true;
   } catch (err) {
     console.error("Supabase Initialization Error:", err);
+    supabaseState.ready = false;
+    supabaseState.client = null;
     return false;
   }
+}
+
+// When the page loads with a password-reset/recovery link in the URL hash
+// (from a "Forgot password" email), open the reset page.
+function detectRecoveryLink() {
+  const hash = window.location.hash || '';
+  if (hash.includes('access_token') && hash.includes('type=recovery')) {
+    window.location.replace(`${window.location.origin}/reset-password.html${hash}`);
+    return true;
+  }
+  return false;
 }
 
 async function hydrateUserFromSupabase(user) {
@@ -89,24 +102,6 @@ async function hydrateUserFromSupabase(user) {
   localStorage.setItem('nexuz_plan', state.plan);
   updateNavForAuth();
   updateProBadges();
-}
-
-function updateProBadges() {
-  // Update pro badges on agent cards
-  document.querySelectorAll('.agent-card[data-tier="pro"] .card-btn').forEach(btn => {
-    if (state.plan === 'pro' || state.plan === 'team') {
-      btn.classList.remove('pro-locked');
-      btn.textContent = 'Launch Agent →';
-      btn.onclick = () => {
-        const agentId = btn.closest('.agent-card').dataset.agent;
-        openAgent(agentId);
-      };
-    } else {
-      btn.classList.add('pro-locked');
-      btn.textContent = 'Upgrade to Pro →';
-      btn.onclick = () => checkPro(btn.closest('.agent-card').dataset.agent);
-    }
-  });
 }
 
 async function ensureSupabaseProfile(user) {
@@ -145,10 +140,7 @@ async function supabaseLogin(email, password, mode = 'signin') {
     result = await supabaseState.client.auth.signUp({
       email,
       password,
-      options: { 
-        data: { full_name: email.split('@')[0] },
-        emailRedirectTo: window.location.origin
-      }
+      options: { data: { full_name: email.split('@')[0] } }
     });
   } else {
     result = await supabaseState.client.auth.signInWithPassword({ email, password });
@@ -163,6 +155,24 @@ async function supabaseLogin(email, password, mode = 'signin') {
 async function supabaseLogout() {
   if (!supabaseState.ready) return;
   await supabaseState.client.auth.signOut();
+}
+
+async function supabaseForgotPassword(email) {
+  if (!supabaseState.ready) throw new Error('Supabase is not configured');
+  // Redirect back to the site's password-reset page after the user clicks the
+  // link in the email. The reset page reads the tokens from the URL hash.
+  const redirectTo = `${window.location.origin}/reset-password.html`;
+  const { error } = await supabaseState.client.auth.resetPasswordForEmail(email, {
+    redirectTo
+  });
+  if (error) throw error;
+}
+
+async function supabaseUpdatePassword(newPassword) {
+  if (!supabaseState.ready) throw new Error('Supabase is not configured');
+  const { data, error } = await supabaseState.client.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+  return data;
 }
 
 async function supabaseOAuth(provider) {

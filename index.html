@@ -11,12 +11,10 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://openrouter.ai" />
 
-  <!-- SECURITY: CSP handled by Vercel headers (vercel.json) -->
+  <!-- SECURITY: Strict Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-hashes' https://js.paystack.co https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://*.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; img-src 'self' data: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://api.paystack.co https://openrouter.ai https://integrate.api.nvidia.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';">
   
   <title>NexuzAI — Your AI Agent Hub</title>
-  <meta name="description" content="NexuzAI is your AI agent hub for resume writing, email drafting, study notes, contract analysis, LinkedIn optimization, research reports, code mentoring, viral content, meeting minutes, and more." />
-  <link rel="canonical" href="https://nexuzai.xyz/" />
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
   <link rel="stylesheet" href="css/style.css" />
   <link
     href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap"
@@ -24,30 +22,11 @@
 </head>
 
 <body>
-  <script>
-    // GLOBAL ERROR LOGGER FOR MOBILE DEBUGGING
-    window.onerror = function (msg, url, line, col, error) {
-      const errorDiv = document.createElement('div');
-      errorDiv.style.cssText = 'position:fixed; top:0; left:0; right:0; background:#ff4757; color:white; z-index:99999; padding:15px; font-family:monospace; font-size:13px; box-shadow:0 4px 15px rgba(0,0,0,0.3); line-height:1.4;';
-      errorDiv.innerHTML = `<strong>⚠️ Site Error:</strong> ${msg}<br><small>${url.split('/').pop()}:${line}</small>`;
-      const closeBtn = document.createElement('button');
-      closeBtn.innerText = '✕';
-      closeBtn.style.cssText = 'position:absolute; top:10px; right:10px; background:none; border:none; color:white; font-size:20px; cursor:pointer;';
-      closeBtn.onclick = () => errorDiv.remove();
-      errorDiv.appendChild(closeBtn);
-      document.body.appendChild(errorDiv);
-      return false;
-    };
-  </script>
   <!-- NAV -->
   <nav class="nav">
     <div class="nav-brand">
       <span class="brand-icon">⬡</span>
       <span class="brand-name">NexuzAI</span>
-    </div>
-    <div class="nav-search">
-      <span class="search-icon">🔍</span>
-      <input type="text" id="agentSearch" placeholder="Search agents..." oninput="filterAgents()">
     </div>
     <div class="nav-links">
       <a href="#agents">Agents</a>
@@ -67,7 +46,8 @@
     <div class="hero-content">
       <div class="hero-badge">✦ 15 AI Agents Available</div>
       <h1 class="hero-title">One Hub.<br><em>Infinite Intelligence.</em></h1>
-      <p class="hero-sub">NexuzAI is your AI agent hub for resume writing, cover letters, email drafting, study notes, contract analysis, LinkedIn optimization, research reports, code mentoring, viral content, meeting minutes, startup planning, academic essays, code conversion, trip planning, and event planning.</p>
+      <p class="hero-sub">Access a curated suite of powerful AI agents — from resume writing to code mentorship — all
+        powered by cutting-edge language models.</p>
       <div class="hero-actions">
         <a href="#agents" class="btn-primary">Explore Agents</a>
         <a href="#pricing" class="btn-ghost">View Plans ↗</a>
@@ -187,74 +167,74 @@
         <button class="card-btn pro-locked" onclick="checkPro('linkedin')">Launch Agent →</button>
       </div>
 
-      <div class="agent-card" data-agent="research" data-tier="pro">
+      <div class="agent-card" data-agent="research" data-tier="free">
         <div class="card-accent"></div>
         <div class="card-icon">🔬</div>
-        <div class="card-badge pro">PRO</div>
+        <div class="card-badge free">FREE</div>
         <h3>Research Architect</h3>
         <p>Deep-dive reports with structured analysis, insights, and strategic recommendations.</p>
         <div class="card-tags"><span>Analysis</span><span>Reports</span><span>Insights</span></div>
-        <button class="card-btn pro-locked" onclick="checkPro('research')">Launch Agent →</button>
+        <button class="card-btn" onclick="openAgent('research')">Launch Agent →</button>
       </div>
 
-      <div class="agent-card" data-agent="coding" data-tier="pro">
+      <div class="agent-card" data-agent="coding" data-tier="free">
         <div class="card-accent"></div>
         <div class="card-icon">💻</div>
-        <div class="card-badge pro">PRO</div>
+        <div class="card-badge free">FREE</div>
         <h3>Code Mentor</h3>
         <p>Debug, refactor, and explain complex code logic with expert-level mentorship.</p>
         <div class="card-tags"><span>Debug</span><span>Refactor</span><span>Learn</span></div>
-        <button class="card-btn pro-locked" onclick="checkPro('coding')">Launch Agent →</button>
+        <button class="card-btn" onclick="openAgent('coding')">Launch Agent →</button>
       </div>
 
-      <div class="agent-card" data-agent="viral" data-tier="pro">
+      <div class="agent-card" data-agent="viral" data-tier="free">
         <div class="card-accent"></div>
         <div class="card-icon">🤳</div>
-        <div class="card-badge pro">PRO</div>
+        <div class="card-badge free">FREE</div>
         <h3>Viral Content Creator</h3>
         <p>Hooks, scripts, and threads that stop the scroll on TikTok, Reels, and LinkedIn.</p>
         <div class="card-tags"><span>Social Media</span><span>Viral</span><span>Hooks</span></div>
-        <button class="card-btn pro-locked" onclick="checkPro('viral')">Launch Agent →</button>
+        <button class="card-btn" onclick="openAgent('viral')">Launch Agent →</button>
       </div>
 
-      <div class="agent-card" data-agent="minutes" data-tier="pro">
+      <div class="agent-card" data-agent="minutes" data-tier="free">
         <div class="card-accent"></div>
         <div class="card-icon">📝</div>
-        <div class="card-badge pro">PRO</div>
+        <div class="card-badge free">FREE</div>
         <h3>Meeting Minutes Pro</h3>
         <p>Turn messy transcripts into professional executive summaries and clear action items.</p>
         <div class="card-tags"><span>Meetings</span><span>Summaries</span><span>Action Items</span></div>
-        <button class="card-btn pro-locked" onclick="checkPro('minutes')">Launch Agent →</button>
+        <button class="card-btn" onclick="openAgent('minutes')">Launch Agent →</button>
       </div>
 
-      <div class="agent-card" data-agent="startup" data-tier="pro">
+      <div class="agent-card" data-agent="startup" data-tier="free">
         <div class="card-accent"></div>
         <div class="card-icon">🚀</div>
-        <div class="card-badge pro">PRO</div>
+        <div class="card-badge free">FREE</div>
         <h3>Startup Architect</h3>
         <p>Validate ideas and build your business model with VC-level analysis and roadmap.</p>
         <div class="card-tags"><span>Startup</span><span>Business</span><span>Validation</span></div>
-        <button class="card-btn pro-locked" onclick="checkPro('startup')">Launch Agent →</button>
+        <button class="card-btn" onclick="openAgent('startup')">Launch Agent →</button>
       </div>
 
-      <div class="agent-card" data-agent="academic" data-tier="pro">
+      <div class="agent-card" data-agent="academic" data-tier="free">
         <div class="card-accent"></div>
         <div class="card-icon">🎓</div>
-        <div class="card-badge pro">PRO</div>
+        <div class="card-badge free">FREE</div>
         <h3>Academic Essay Drafter</h3>
         <p>Structure and draft high-quality academic papers with thesis and citation guidance.</p>
         <div class="card-tags"><span>Academic</span><span>Essay</span><span>Thesis</span></div>
-        <button class="card-btn pro-locked" onclick="checkPro('academic')">Launch Agent →</button>
+        <button class="card-btn" onclick="openAgent('academic')">Launch Agent →</button>
       </div>
 
-      <div class="agent-card" data-agent="converter" data-tier="pro">
+      <div class="agent-card" data-agent="converter" data-tier="free">
         <div class="card-accent"></div>
         <div class="card-icon">🔄</div>
-        <div class="card-badge pro">PRO</div>
+        <div class="card-badge free">FREE</div>
         <h3>Universal Code Converter</h3>
         <p>Translate code between any programming language with logic parity and idiomatic syntax.</p>
         <div class="card-tags"><span>Translate</span><span>Cross-Platform</span><span>Migration</span></div>
-        <button class="card-btn pro-locked" onclick="checkPro('converter')">Launch Agent →</button>
+        <button class="card-btn" onclick="openAgent('converter')">Launch Agent →</button>
       </div>
 
     </div>
@@ -293,8 +273,11 @@
         <p class="price-desc">Unlock all agents and unlimited usage.</p>
         <ul class="price-features">
           <li>✓ All Free Agents</li>
-          <li>✓ 11 Pro Agents</li>
-          <li>✓ Unlimited requests</li>
+          <li>✓ Contract Explainer</li>
+          <li>✓ Trip Planner</li>
+          <li>✓ Event Planner</li>
+          <li>✓ LinkedIn Optimizer</li>
+          <li>✓ 10 requests/account</li>
           <li>✓ Priority responses</li>
           <li>✓ Export to PDF & DOCX</li>
         </ul>
@@ -336,8 +319,6 @@
         <div class="modal-body" id="modalBody">
           <!-- Dynamic content injected by JS -->
         </div>
-        <div class="loading-bar" id="loadingBar"></div>
-        <div id="progressPercent">0%</div>
         <div class="modal-output" id="modalOutput" style="display:none">
           <div class="output-header">
             <span>✦ AI Output</span>
@@ -411,8 +392,8 @@
             <input type="password" id="loginPass" placeholder="••••••••" required />
           </div>
           <button type="submit" class="submit-pay-btn" id="authSubmitBtn">Sign In</button>
-          <p class="pay-note" style="text-align:center; margin-top:0.75rem; font-size:0.85rem;">
-            <a href="#" onclick="event.preventDefault(); handleForgotPassword()" style="color:var(--accent); text-decoration:underline;">Forgot password?</a>
+          <p class="pay-note" style="text-align:center; margin-top:0.5rem">
+            <a href="#" id="forgotPassLink" onclick="event.preventDefault(); openForgotModal()" style="color:var(--accent)">Forgot password?</a>
           </p>
           <div class="auth-divider"><span>or continue with</span></div>
           <div class="oauth-grid">
@@ -427,9 +408,37 @@
         </form>
       </div>
     </div>
-  </div>
+    </div>
 
-  <!-- TOAST -->
+    <!-- FORGOT PASSWORD MODAL -->
+    <div class="modal-overlay" id="forgotModal">
+    <div class="modal-box login-box">
+      <div class="modal-header-wrap">
+        <button class="modal-close" onclick="closeForgotModal()">✕</button>
+        <div class="modal-header">
+          <span class="modal-icon">🔑</span>
+          <div>
+            <h3 id="forgotTitle">Reset Password</h3>
+            <p id="forgotDesc">Enter your email and we'll send a reset link</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-scroll-body">
+        <form class="payment-form" onsubmit="handleForgot(event)">
+          <div class="form-row">
+            <label>Email</label>
+            <input type="email" id="forgotEmail" placeholder="you@example.com" required />
+          </div>
+          <button type="submit" class="submit-pay-btn" id="forgotSubmitBtn">Send Reset Link</button>
+          <p class="pay-note" style="text-align:center; margin-top:0.75rem">
+            <a href="#" onclick="event.preventDefault(); closeForgotModal(); openLoginModal('signin')" style="color:var(--accent)">Back to sign in</a>
+          </p>
+        </form>
+      </div>
+    </div>
+    </div>
+
+    <!-- TOAST -->
   <div class="toast" id="toast"></div>
 
   <!-- TEAM HUB SECTION -->
@@ -648,7 +657,7 @@
     <div class="cookie-content">
       <div class="cookie-text">
         <span class="cookie-icon">🍪</span>
-        <p>We use cookies to enhance your experience and analyze our traffic. By clicking "Accept", you consent to our use of cookies as described in our <a href="docs/privacy.html" style="color:var(--accent); text-decoration:underline;">Privacy Policy</a>.</p>
+        <p>We use cookies to enhance your experience and analyze our traffic. By clicking "Accept", you consent to our use of cookies as described in our <a href="docs/PRIVACY.md" style="color:var(--accent); text-decoration:underline;">Privacy Policy</a>.</p>
       </div>
       <div class="cookie-actions">
         <button onclick="acceptCookies()" class="btn-primary" style="padding: 0.5rem 1.25rem; font-size: 0.85rem;">Accept</button>
@@ -664,9 +673,9 @@
     </div>
     <p>© 2026 NexuzAI · Powered by OpenRouter · All rights reserved</p>
     <div class="footer-links">
-      <a href="docs/privacy.html">Privacy</a>
-      <a href="docs/terms.html">Terms</a>
-      <a href="mailto:boltform03@gmail.com">Contact</a>
+      <a href="docs/PRIVACY.md">Privacy</a>
+      <a href="https://wa.me/233540556225">Terms</a>
+      <a href="mailto:contact@nexuzai.io">Contact</a>
     </div>
   </footer>
 
@@ -680,16 +689,6 @@
   <script src="js/supabase-config.js"></script>
   <script src="js/supabase-service.js"></script>
   <script src="js/app.js"></script>
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "NexuzAI",
-    "url": "https://nexuzai.xyz",
-    "logo": "https://nexuzai.xyz/favicon.png",
-    "description": "NexuzAI is an AI agent hub providing resume writing, email drafting, study notes, contract analysis, LinkedIn optimization, and more."
-  }
-  </script>
 </body>
 
 </html>

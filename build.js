@@ -7,14 +7,11 @@ const configPath = path.join(outputDir, 'js', 'supabase-config.js');
 
 const staticEntries = [
   'index.html',
-  'admin',
+  'reset-password.html',
   'css',
   'js',
-  'docs',
-  'sitemap.xml',
-  'robots.txt',
-  'images',
-  'favicon.png'
+  'admin',
+  'docs'
 ];
 
 function assertInsideRoot(targetPath) {
