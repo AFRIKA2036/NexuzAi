@@ -140,7 +140,36 @@ test('supabaseLogin succeeds on signup and hydrates the new user', async () => {
   assert.strictEqual(context.state.plan, 'free');
 });
 
-test('supabaseLogin succeeds with correct credentials', async () => {
+  test('supabaseLogin surfaces a clear error when sign-in returns no user/session', async () => {
+    const context = setupAuthContext({
+      supabaseConfig: { url: 'https://test.supabase.co', anonKey: 'test-key' }
+    });
+    const { supabaseLogin, initSupabase } = context;
+
+    // Simulate a confirmed-email-required / pending response: no error,
+    // but Supabase returns neither a user nor a session. Override the
+    // factory BEFORE initSupabase creates the client.
+    const originalSignIn = context.window.supabase.createClient;
+    context.window.supabase.createClient = (url, key) => {
+      const client = originalSignIn(url, key);
+      client.auth.signInWithPassword = async () => ({
+        data: { user: null, session: null },
+        error: null
+      });
+      return client;
+    };
+
+    await initSupabase();
+
+    try {
+      await supabaseLogin('pending@example.com', 'password');
+      assert.fail('Should have thrown for a no-user/no-session sign-in');
+    } catch (err) {
+      assert.match(err.message, /Sign in failed/i);
+    }
+  });
+
+  test('supabaseLogin succeeds with correct credentials', async () => {
   const context = setupAuthContext();
   const { supabaseLogin, initSupabase } = context;
   

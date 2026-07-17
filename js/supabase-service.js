@@ -148,6 +148,18 @@ async function supabaseLogin(email, password, mode = 'signin') {
 
   const { data, error } = result;
   if (error) throw error;
+
+  // signUp / signInWithPassword can return no error but also no user/session
+  // (e.g. email confirmation still pending). Treat that as a failure so the
+  // UI never silently "succeeds" while the user stays logged out.
+  if (!data || (!data.user && !data.session)) {
+    throw new Error(
+      mode === 'signup'
+        ? 'Account created but confirmation is pending. Check your email.'
+        : 'Sign in failed. Please confirm your email or check your credentials.'
+    );
+  }
+
   if (data.user) await hydrateUserFromSupabase(data.user);
   return data;
 }
