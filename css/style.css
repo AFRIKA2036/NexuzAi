@@ -447,14 +447,14 @@ body {
 
 .card-btn {
   width: 100%; padding: 0.65rem 1rem;
-  background: rgba(74, 240, 200, 0.08);
-  border: 1px solid rgba(74, 240, 200, 0.25);
+  background: rgba(240, 168, 74, 0.08);
+  border: 1px solid rgba(240, 168, 74, 0.25);
   border-radius: var(--radius-sm);
-  color: var(--accent); font-family: var(--font-body); font-weight: 600;
+  color: var(--pro); font-family: var(--font-body); font-weight: 600;
   font-size: 0.875rem; cursor: pointer; transition: all 0.2s;
 }
 
-.card-btn:hover { background: rgba(74, 240, 200, 0.15); }
+.card-btn:hover { background: rgba(240, 168, 74, 0.15); }
 
 .card-btn.pro-locked {
   background: rgba(240, 168, 74, 0.06);
