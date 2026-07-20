@@ -253,7 +253,8 @@ create trigger usage_daily_touch_updated_at
   before update on public.usage_daily
   for each row execute procedure public.touch_updated_at();
 
-create or replace function public.consume_daily_usage(p_limit integer default 20)
+-- Free tier: limit generations per rolling window (default 2 days), enforced per account (user_id).
+create or replace function public.consume_window_usage(p_limit integer default 2, p_window_days integer default 2)
 returns table(allowed boolean, request_count integer, plan public.plan_type)
 language plpgsql
 security definer set search_path = public
@@ -261,6 +262,7 @@ as $$
 declare
   v_user uuid := auth.uid();
   v_plan public.plan_type;
+  v_window_start date := current_date - (p_window_days - 1);
   v_count integer;
 begin
   if v_user is null then
@@ -280,28 +282,28 @@ begin
     return;
   end if;
 
+  -- Sum usage across the rolling window for this account (per user_id).
+  select coalesce(sum(usage_daily.request_count), 0)
+  into v_count
+  from public.usage_daily
+  where usage_daily.user_id = v_user
+    and usage_daily.usage_date >= v_window_start;
+
+  if v_count >= p_limit then
+    return query select false, v_count, v_plan;
+    return;
+  end if;
+
+  -- Record/increment today's usage.
   insert into public.usage_daily (user_id, usage_date, request_count)
   values (v_user, current_date, 1)
   on conflict (user_id, usage_date) do update
     set request_count = public.usage_daily.request_count + 1,
-        updated_at = now()
-    where public.usage_daily.request_count < p_limit
-  returning public.usage_daily.request_count into v_count;
+        updated_at = now();
 
-  if v_count is null then
-    select usage_daily.request_count
-    into v_count
-    from public.usage_daily
-    where usage_daily.user_id = v_user
-      and usage_daily.usage_date = current_date;
-
-    return query select false, coalesce(v_count, p_limit), v_plan;
-    return;
-  end if;
-
-  return query select true, v_count, v_plan;
+  return query select true, v_count + 1, v_plan;
 end;
 $$;
 
-revoke all on function public.consume_daily_usage(integer) from public;
-grant execute on function public.consume_daily_usage(integer) to authenticated;
+revoke all on function public.consume_window_usage(integer, integer) from public;
+grant execute on function public.consume_window_usage(integer, integer) to authenticated;

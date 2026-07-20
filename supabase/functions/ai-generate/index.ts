@@ -1,7 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { logger, generateRequestId } from '../_shared/logger.ts';
 
-const FREE_DAILY_LIMIT = 20;
+// Free tier: 2 generations per rolling 2-day window, enforced per account (user_id).
+const FREE_GENERATION_LIMIT = 2;
+const FREE_WINDOW_DAYS = 2;
 const MAX_BODY_BYTES = 250_000;
 const MAX_MESSAGES = 8;
 const MAX_CONTENT_CHARS = 80_000;
@@ -112,18 +114,18 @@ Deno.serve(async (req) => {
       return json({ error: validation.error, requestId }, 400, cors.headers);
     }
 
-    const usage = await consumeDailyUsage(userClient, admin, userData.user.id, requestId);
+    const usage = await consumeWindowUsage(userClient, admin, userData.user.id, requestId);
     if (!usage?.allowed) {
-      log.usageCheck(requestId, userData.user.id, false, usage?.request_count ?? FREE_DAILY_LIMIT, FREE_DAILY_LIMIT);
+      log.usageCheck(requestId, userData.user.id, false, usage?.request_count ?? FREE_GENERATION_LIMIT, FREE_GENERATION_LIMIT);
       return json({
-        error: 'Free daily limit reached',
+        error: 'Free tier limit reached',
         requestId,
-        request_count: usage?.request_count ?? FREE_DAILY_LIMIT,
-        limit: FREE_DAILY_LIMIT
+        request_count: usage?.request_count ?? FREE_GENERATION_LIMIT,
+        limit: FREE_GENERATION_LIMIT
       }, 429, cors.headers);
     }
 
-    log.usageCheck(requestId, userData.user.id, true, usage?.request_count ?? 0, FREE_DAILY_LIMIT);
+    log.usageCheck(requestId, userData.user.id, true, usage?.request_count ?? 0, FREE_GENERATION_LIMIT);
 
     const defaultModels = getConfiguredModels();
 
@@ -186,9 +188,10 @@ Deno.serve(async (req) => {
   }
 });
 
-async function consumeDailyUsage(userClient: SupabaseClient, admin: SupabaseClient, userId: string, requestId: string): Promise<UsageResult> {
-  const { data: usageRows, error: usageError } = await userClient.rpc('consume_daily_usage', {
-    p_limit: FREE_DAILY_LIMIT
+async function consumeWindowUsage(userClient: SupabaseClient, admin: SupabaseClient, userId: string, requestId: string): Promise<UsageResult> {
+  const { data: usageRows, error: usageError } = await userClient.rpc('consume_window_usage', {
+    p_limit: FREE_GENERATION_LIMIT,
+    p_window_days: FREE_WINDOW_DAYS
   });
 
   if (!usageError) return Array.isArray(usageRows) ? usageRows[0] : usageRows;
@@ -213,22 +216,36 @@ async function consumeDailyUsage(userClient: SupabaseClient, admin: SupabaseClie
     return { allowed: true, request_count: 0, plan };
   }
 
-  const usageDate = new Date().toISOString().slice(0, 10);
+  // Fallback: sum the last FREE_WINDOW_DAYS worth of daily usage rows for this account.
+  const windowStart = new Date();
+  windowStart.setDate(windowStart.getDate() - (FREE_WINDOW_DAYS - 1));
+  const windowStartStr = windowStart.toISOString().slice(0, 10);
+
   const { data: existing, error: existingError } = await admin
+    .from('usage_daily')
+    .select('request_count')
+    .eq('user_id', userId)
+    .gte('usage_date', windowStartStr);
+
+  if (existingError) throw new Error(`Usage lookup failed: ${existingError.message}`);
+
+  const currentCount = (existing || []).reduce((sum: number, row: { request_count?: number }) => sum + Number(row.request_count || 0), 0);
+  if (currentCount >= FREE_GENERATION_LIMIT) {
+    return { allowed: false, request_count: currentCount, plan };
+  }
+
+  // Record today's increment.
+  const usageDate = new Date().toISOString().slice(0, 10);
+  const { data: todayRow, error: todayError } = await admin
     .from('usage_daily')
     .select('request_count')
     .eq('user_id', userId)
     .eq('usage_date', usageDate)
     .maybeSingle();
 
-  if (existingError) throw new Error(`Usage lookup failed: ${existingError.message}`);
+  if (todayError) throw new Error(`Usage lookup failed: ${todayError.message}`);
 
-  const currentCount = Number(existing?.request_count || 0);
-  if (currentCount >= FREE_DAILY_LIMIT) {
-    return { allowed: false, request_count: currentCount, plan };
-  }
-
-  const nextCount = currentCount + 1;
+  const nextCount = Number(todayRow?.request_count || 0) + 1;
   const { error: upsertError } = await admin
     .from('usage_daily')
     .upsert({
@@ -239,7 +256,7 @@ async function consumeDailyUsage(userClient: SupabaseClient, admin: SupabaseClie
     }, { onConflict: 'user_id,usage_date' });
 
   if (upsertError) throw new Error(`Usage update failed: ${upsertError.message}`);
-  return { allowed: true, request_count: nextCount, plan };
+  return { allowed: true, request_count: currentCount + 1, plan };
 }
 
 interface ProviderResult {

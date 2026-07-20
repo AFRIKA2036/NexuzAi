@@ -13,7 +13,11 @@ function promptSection(title, value, fallback = 'Not provided') {
 }
 
 const TASK_MODEL_FALLBACKS = [
-  'nvidia/nemotron-3-super-120b-a12b:free'
+  'nvidia/nemotron-3-ultra-550b-a55b:free'
+];
+
+const CODE_MODEL_FALLBACKS = [
+  'cohere/north-mini-code:free'
 ];
 
 const AGENTS = {

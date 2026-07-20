@@ -671,11 +671,11 @@ async function runAgent() {
         The app could not reach <code>ai-generate</code> in the configured Supabase project. Deploy the Edge Function, then refresh this page.<br><br>
         <button class="btn-ghost" style="margin-top:1rem;width:100%;border-color:rgba(255,107,107,0.3)" onclick="showDemoOutput()">See Demo Output Instead →</button>
       </div>`;
-    } else if (errorMsg.includes('Upgrade to Pro')) {
+    } else if (errorMsg.includes('Free tier limit reached') || errorMsg.includes('Free daily limit reached')) {
       showToast('✨ Free tier limit reached');
       outputContent.innerHTML = `<div class="error-box" style="color:#f0a84a;padding:1.25rem;border:1px solid rgba(240,168,74,0.2);border-radius:8px;background:rgba(240,168,74,0.05)">
         <strong>✨ Free Tier Limit Reached</strong><br><br>
-        You have completed your 2 free tasks. Please subscribe to a Pro plan to continue generating unlimited tasks.<br><br>
+        You have completed your 2 free generations. The free plan allows 2 generations every 2 days per account. Subscribe to a Pro plan for unlimited generations.<br><br>
         <button class="modal-submit" style="margin-top:1rem;width:100%" onclick="openPaymentModal('pro')">Upgrade to Pro →</button>
       </div>`;
     } else {
